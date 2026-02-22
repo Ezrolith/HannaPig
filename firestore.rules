@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /scores/{entry} {
+      // Anyone can read the leaderboard
+      allow read: if true;
+
+      // Anyone can submit a score, but the entry must be valid
+      allow create: if
+        // Must have exactly these three fields
+        request.resource.data.keys().hasAll(['name', 'score', 'ts']) &&
+        request.resource.data.keys().hasOnly(['name', 'score', 'ts']) &&
+
+        // name must be a non-empty string, max 20 characters
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 20 &&
+
+        // score must be a non-negative integer within a realistic range
+        // (grid is 15x15 = 225 cells; with bonus multipliers max realistic ~500;
+        //  cap at 1000 to allow for skilled play while blocking obvious cheating)
+        request.resource.data.score is number &&
+        request.resource.data.score == request.resource.data.score.toInt() &&
+        request.resource.data.score >= 0 &&
+        request.resource.data.score <= 1000 &&
+
+        // timestamp must be set by the server
+        request.resource.data.ts == request.time;
+
+      // No updates or deletes allowed
+      allow update, delete: if false;
+    }
+  }
+}
