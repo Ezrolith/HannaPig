@@ -333,6 +333,21 @@
     box-shadow: none;
   }
 
+  /* Screen shake */
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-4px, 2px); }
+    20% { transform: translate(4px, -2px); }
+    30% { transform: translate(-3px, -3px); }
+    40% { transform: translate(3px, 3px); }
+    50% { transform: translate(-2px, 1px); }
+    60% { transform: translate(2px, -1px); }
+    70% { transform: translate(-1px, 2px); }
+    80% { transform: translate(1px, -1px); }
+    90% { transform: translate(-1px, 0); }
+  }
+  .screen-frame.shake { animation: shake 0.4s ease-out; }
+
   /* Overlays */
   .overlay {
     position: absolute;
@@ -491,7 +506,7 @@
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
-      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.10</span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.11</span>
       <span>Chonk: <span id="lengthLabel">3</span></span>
     </div>
   </div>
@@ -664,6 +679,12 @@ const COLORS = {
   appleLeaf: '#55aa44',
 };
 
+const FOOD_TYPES = ['apple', 'carrot', 'acorn', 'truffle'];
+const FOOD_PARTICLE_COLORS = {
+  apple: '#cc3333', carrot: '#ff8830', acorn: '#8B6914', truffle: '#6B3FA0',
+};
+let currentFoodType = 'apple';
+
 let difficulty = 'easy';
 const SPEED_PROFILES = {
   easy:   { intervals: [220, 195, 170, 150, 135, 120], thresholds: [0, 5, 15, 30, 50, 75] },
@@ -734,6 +755,48 @@ if (window.visualViewport) {
 
 let snake, dir, inputQueue, food, score, gameOverScore, highScore, speed, gameLoop, state;
 let bonusFood = null, bonusExpiry = 0, bonusFlashMsg = null;
+let flashMessages = []; // floating "+N" popups
+let speedUpBanner = null; // "SPEED UP!" notification
+
+// Streak/combo system
+let streak = 0, lastEatTime = 0, streakDisplay = null;
+const STREAK_WINDOW = 4000; // ms to keep streak alive
+
+// Particle system
+let particles = [];
+function spawnParticles(cx, cy, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r: 2 + Math.random() * 3,
+      color: color,
+      alpha: 1.0,
+      life: 20 + Math.floor(Math.random() * 15),
+    });
+  }
+}
+function updateAndDrawParticles() {
+  particles = particles.filter(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.08; // gravity
+    p.life--;
+    p.alpha = Math.max(0, p.life / 30);
+    if (p.life <= 0) return false;
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return true;
+  });
+}
 
 
 highScore = parseInt(localStorage.getItem('pigSnakeHighScore') || '0');
@@ -757,6 +820,10 @@ function init() {
   bonusFood = null;
   bonusExpiry = 0;
   bonusFlashMsg = null;
+  particles = [];
+  flashMessages = [];
+  speedUpBanner = null;
+  streak = 0; lastEatTime = 0; streakDisplay = null;
   draw();
 }
 
@@ -773,6 +840,7 @@ function placeFood() {
     (attempts < 30 && Math.abs(pos.x - snake[0].x) + Math.abs(pos.y - snake[0].y) < 3)
   ));
   food = pos;
+  currentFoodType = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
 }
 
 function spawnBonusFood() {
@@ -824,7 +892,24 @@ function update() {
 
   if (head.x === food.x && head.y === food.y) {
     playEatOink();
-    score++;
+    const eatCx = head.x * CELL + CELL / 2;
+    const eatCy = head.y * CELL + CELL / 2;
+    spawnParticles(eatCx, eatCy, FOOD_PARTICLE_COLORS[currentFoodType] || COLORS.apple, 8);
+    // Streak system
+    const now = Date.now();
+    if (now - lastEatTime < STREAK_WINDOW && lastEatTime > 0) {
+      streak++;
+    } else {
+      streak = 1;
+    }
+    lastEatTime = now;
+    const streakBonus = streak >= 3 ? Math.floor(streak / 2) : 0;
+    const pointsGained = 1 + streakBonus;
+    score += pointsGained;
+    if (streak >= 2) {
+      streakDisplay = { text: `${streak}x STREAK`, alpha: 1.0, frame: 0, bonus: streakBonus > 0 };
+    }
+    flashMessages.push({ x: eatCx, y: eatCy, text: `+${pointsGained}`, color: streakBonus > 0 ? '#ff6600' : '#fff', alpha: 1.0, frame: 0 });
     scoreEl.textContent = score;
     lengthLabel.textContent = snake.length;
     const newSpeed = getSpeedLevel();
@@ -833,12 +918,14 @@ function update() {
       speedLabel.textContent = speed;
       clearInterval(gameLoop);
       gameLoop = setInterval(update, getSpeed());
+      speedUpBanner = { alpha: 1.0, frame: 0, level: speed };
     }
     placeFood();
     // ~30% chance to spawn a bonus item after score ≥ 3
     if (score >= 3 && !bonusFood && Math.random() < 0.30) spawnBonusFood();
   } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
     playBonusEat();
+    spawnParticles(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ffd700', 12);
     const mult = bonusFood.multiplier;
     score += mult;
     bonusFood = null;
@@ -974,6 +1061,114 @@ function drawApple(cx, cy) {
   ctx.fill();
 }
 
+function drawCarrot(cx, cy) {
+  const s = CELL / 20;
+  const pulse = Math.sin(Date.now() / 250) * 1.5 * s;
+  ctx.save();
+  ctx.translate(cx, cy + 2 * s);
+  // Carrot body (triangle-ish)
+  ctx.fillStyle = '#ff8830';
+  ctx.beginPath();
+  ctx.moveTo(-5 * s, -4 * s);
+  ctx.lineTo(5 * s, -4 * s);
+  ctx.lineTo(1 * s, (8 + pulse) * s);
+  ctx.lineTo(-1 * s, (8 + pulse) * s);
+  ctx.closePath();
+  ctx.fill();
+  // Highlight stripe
+  ctx.fillStyle = '#ffaa55';
+  ctx.beginPath();
+  ctx.moveTo(-2 * s, -3 * s);
+  ctx.lineTo(0, -3 * s);
+  ctx.lineTo(-0.5 * s, 6 * s);
+  ctx.lineTo(-2 * s, 2 * s);
+  ctx.closePath();
+  ctx.fill();
+  // Green top leaves
+  ctx.fillStyle = '#44aa33';
+  ctx.beginPath();
+  ctx.ellipse(-3 * s, -6 * s, 2 * s, 4 * s, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0, -7 * s, 1.5 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(3 * s, -6 * s, 2 * s, 4 * s, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawAcorn(cx, cy) {
+  const s = CELL / 20;
+  const pulse = Math.sin(Date.now() / 250) * 1.5 * s;
+  // Acorn body
+  ctx.fillStyle = '#8B6914';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2 * s, (5 + pulse * 0.3) * s, 6 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Highlight
+  ctx.fillStyle = '#A07818';
+  ctx.beginPath();
+  ctx.ellipse(cx - 1.5 * s, cy, 2 * s, 3 * s, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Cap
+  ctx.fillStyle = '#5C4010';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - 3 * s, 6 * s, 3.5 * s, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  // Cap texture lines
+  ctx.strokeStyle = '#4A3008';
+  ctx.lineWidth = 0.5 * s;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + i * 2 * s, cy - 5 * s);
+    ctx.lineTo(cx + i * 2 * s, cy - 3 * s);
+    ctx.stroke();
+  }
+  // Stem
+  ctx.strokeStyle = '#5a3a20';
+  ctx.lineWidth = 1.5 * s;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 6 * s);
+  ctx.lineTo(cx, cy - 8 * s);
+  ctx.stroke();
+}
+
+function drawTruffle(cx, cy) {
+  const s = CELL / 20;
+  const pulse = Math.sin(Date.now() / 250) * 1.5 * s;
+  // Mushroom cap
+  ctx.fillStyle = '#6B3FA0';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - s, (7 + pulse * 0.3) * s, 5 * s, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy - s, (7 + pulse * 0.3) * s, 0, Math.PI);
+  ctx.fill();
+  // Spots
+  ctx.fillStyle = '#9B6FD0';
+  ctx.beginPath(); ctx.arc(cx - 3 * s, cy - 3 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 2 * s, cy - 4 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 4 * s, cy - 1 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+  // Stem
+  ctx.fillStyle = '#e8ddd0';
+  ctx.fillRect(cx - 2 * s, cy - s, 4 * s, 6 * s);
+  // Stem base
+  ctx.fillStyle = '#d0c4b0';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 5 * s, 3 * s, 1.5 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawFood(cx, cy, type) {
+  switch (type) {
+    case 'carrot':  drawCarrot(cx, cy); break;
+    case 'acorn':   drawAcorn(cx, cy); break;
+    case 'truffle': drawTruffle(cx, cy); break;
+    default:        drawApple(cx, cy); break;
+  }
+}
+
 function drawBonusFood(cx, cy, multiplier, timeLeft, duration) {
   const s = CELL / 20;
   const progress = timeLeft / duration;
@@ -1082,7 +1277,7 @@ function draw() {
 
   const foodCx = food.x * CELL + CELL / 2;
   const foodCy = food.y * CELL + CELL / 2;
-  drawApple(foodCx, foodCy);
+  drawFood(foodCx, foodCy, currentFoodType);
 
   // Draw bonus food star
   if (bonusFood) {
@@ -1094,7 +1289,7 @@ function draw() {
     }
   }
 
-  // Floating "+N!" message when bonus is eaten
+  // Floating "+N!" message when bonus is eaten (legacy)
   if (bonusFlashMsg) {
     bonusFlashMsg.frame++;
     bonusFlashMsg.alpha = Math.max(0, bonusFlashMsg.alpha - 0.025);
@@ -1114,6 +1309,74 @@ function draw() {
       bonusFlashMsg = null;
     }
   }
+
+  // Floating score popups
+  flashMessages = flashMessages.filter(fm => {
+    fm.frame++;
+    fm.alpha = Math.max(0, fm.alpha - 0.03);
+    if (fm.alpha <= 0) return false;
+    const fs = Math.max(9, Math.round(CELL * 0.55));
+    ctx.save();
+    ctx.globalAlpha = fm.alpha;
+    ctx.font = `bold ${fs}px Courier New, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = fm.color;
+    ctx.fillText(fm.text, fm.x, fm.y - fm.frame * 1.0);
+    ctx.restore();
+    return true;
+  });
+
+  // Speed-up banner
+  if (speedUpBanner) {
+    speedUpBanner.frame++;
+    speedUpBanner.alpha = Math.max(0, speedUpBanner.alpha - 0.012);
+    if (speedUpBanner.alpha > 0) {
+      const fs = Math.max(14, Math.round(CELL * 0.9));
+      ctx.save();
+      ctx.globalAlpha = speedUpBanner.alpha;
+      // Background bar
+      ctx.fillStyle = 'rgba(200, 50, 50, 0.7)';
+      ctx.fillRect(0, canvas.height / 2 - fs, canvas.width, fs * 2);
+      // Text
+      ctx.font = `bold ${fs}px Courier New, monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 6;
+      ctx.fillText(`SPEED ${speedUpBanner.level}!`, canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    } else {
+      speedUpBanner = null;
+    }
+  }
+
+  // Streak display
+  if (streakDisplay) {
+    streakDisplay.frame++;
+    streakDisplay.alpha = Math.max(0, streakDisplay.alpha - 0.015);
+    if (streakDisplay.alpha > 0) {
+      const fs = Math.max(12, Math.round(CELL * 0.65));
+      ctx.save();
+      ctx.globalAlpha = streakDisplay.alpha;
+      ctx.font = `bold ${fs}px Courier New, monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = streakDisplay.bonus ? '#ff6600' : '#e88da5';
+      ctx.shadowColor = streakDisplay.bonus ? '#ff4400' : '#c06080';
+      ctx.shadowBlur = 4;
+      ctx.fillText(streakDisplay.text, canvas.width / 2, CELL * 1.5 - streakDisplay.frame * 0.5);
+      ctx.restore();
+    } else {
+      streakDisplay = null;
+    }
+  }
+
+  // Particle effects
+  updateAndDrawParticles();
 
   if (state === 'playing') {
     requestAnimationFrame(() => draw());
@@ -1350,6 +1613,12 @@ function gameOver() {
   clearInterval(gameLoop);
   stopMusic();
   playSadOink();
+  // Screen shake
+  const frame = document.querySelector('.screen-frame');
+  frame.classList.remove('shake');
+  void frame.offsetWidth; // reflow to restart animation
+  frame.classList.add('shake');
+  frame.addEventListener('animationend', () => frame.classList.remove('shake'), { once: true });
   topScoresPromise = getTopScores(); // start fetch during flash animation
   let flashes = 0;
   const flashInterval = setInterval(() => {
