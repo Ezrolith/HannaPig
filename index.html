@@ -26,7 +26,7 @@
   }
 
   body {
-    background: linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a);
+    background: linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a); /* default fallback */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -34,6 +34,12 @@
     font-family: 'Courier New', monospace;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
+
+  /* ─── Background Themes ─── */
+  body[data-bg="dark"]  { background: linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a); }
+  body[data-bg="grass"] { background: linear-gradient(180deg, #87ceeb 0%, #87ceeb 50%, #5a9e35 50%, #3d7a20 100%); }
+  body[data-bg="mud"]   { background: linear-gradient(135deg, #5c3d11, #3d2508, #6b4a1a); }
+  body[data-bg="candy"] { background: linear-gradient(135deg, #ff80bf, #bf80ff, #80bfff); }
 
   /* ─── Colour Theme Variables ─── */
   .phone {
@@ -134,6 +140,21 @@
     opacity: 0.8;
   }
   #muteBtn:active { opacity: 0.5; }
+
+  #bgBtn {
+    position: absolute;
+    right: 26px;
+    background: none;
+    border: none;
+    color: var(--t-deep);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0.8;
+  }
+  #bgBtn:active { opacity: 0.5; }
 
   #fullscreenBtn {
     position: absolute;
@@ -430,7 +451,7 @@
 <body>
 
 <div class="phone" data-theme="pink">
-  <div class="phone-brand"><button id="themeBtn" title="Change colour"></button><button id="muteBtn" title="Toggle music">🔊</button>Family Truffles<button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button></div>
+  <div class="phone-brand"><button id="themeBtn" title="Change colour"></button><button id="muteBtn" title="Toggle music">🔊</button>Family Truffles<button id="bgBtn" title="Change background">🌑</button><button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button></div>
   <div class="screen-frame">
     <div class="ear ear-left"></div>
     <div class="ear ear-right"></div>
@@ -1355,10 +1376,26 @@ document.getElementById('themeBtn').addEventListener('click', () => {
 document.getElementById('muteBtn').addEventListener('click', toggleMute);
 document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
 
+// --- Background Themes ---
+const BG_THEMES = ['dark', 'grass', 'mud', 'candy'];
+const BG_ICONS  = { dark: '🌑', grass: '🌿', mud: '🍂', candy: '🍭' };
+let currentBg = localStorage.getItem('pigSnakeBg') || 'dark';
+
+function applyBg(bg) {
+  currentBg = bg;
+  document.body.dataset.bg = bg;
+  document.getElementById('bgBtn').textContent = BG_ICONS[bg];
+  localStorage.setItem('pigSnakeBg', bg);
+}
+document.getElementById('bgBtn').addEventListener('click', () => {
+  applyBg(BG_THEMES[(BG_THEMES.indexOf(currentBg) + 1) % BG_THEMES.length]);
+});
+
 // --- Initial state ---
 setSizeMode('medium');
 setDifficulty('easy');
 applyTheme(currentTheme);
+applyBg(currentBg);
 state = 'start';
 init();
 // Extra resize passes for iOS — layout can settle well after DOMContentLoaded
