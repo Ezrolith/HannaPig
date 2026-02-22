@@ -1030,6 +1030,7 @@ document.addEventListener('keydown', (e) => {
     ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
   };
   if (keyMap[e.key]) {
+    if (state === 'gameover' || state === 'leaderboard') return;
     e.preventDefault();
     setDirection(keyMap[e.key]);
   }
