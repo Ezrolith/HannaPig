@@ -909,7 +909,7 @@ function update() {
     if (streak >= 2) {
       streakDisplay = { text: `${streak}x STREAK`, alpha: 1.0, frame: 0, bonus: streakBonus > 0 };
     }
-    flashMessages.push({ x: eatCx, y: eatCy, text: `+${pointsGained}`, color: streakBonus > 0 ? '#ff6600' : '#fff', alpha: 1.0, frame: 0 });
+    flashMessages.push({ x: eatCx, y: eatCy, text: `+${pointsGained}`, color: streakBonus > 0 ? '#ff6600' : '#4a2030', alpha: 1.0, frame: 0 });
     scoreEl.textContent = score;
     lengthLabel.textContent = snake.length;
     const newSpeed = getSpeedLevel();
@@ -1796,6 +1796,7 @@ function applyBg(bg) {
   COLORS.bg    = t.bg;
   COLORS.bgAlt = t.bgAlt;
   boardMud     = t.mud;
+  document.body.dataset.bg = bg;
   document.getElementById('bgBtn').textContent = BG_ICONS[bg];
   localStorage.setItem('pigSnakeBg', bg);
   if (snake) generateMud(); // refresh mud splats when switching mid-game
