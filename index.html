@@ -79,13 +79,13 @@
     padding: 20px 16px 24px;
     box-shadow: 0 0 50px var(--t-shadow), inset 0 2px 4px rgba(255,255,255,0.3);
     border: 3px solid var(--t-border);
-    width: min(90vw, calc(100svh - 370px));
+    width: min(90vw, calc(100vh - 370px));
     max-width: 580px;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .phone {
-      width: min(88vw, calc(100svh - 190px));
+      width: min(88vw, calc(100vh - 190px));
       max-width: 720px;
     }
   }
@@ -658,6 +658,30 @@ function resizeCanvas() {
 }
 new ResizeObserver(resizeCanvas).observe(canvas);
 
+// Recalculate phone width then canvas — called on resize / orientation change
+function recalcLayout() {
+  if (currentSizeMode && currentSizeMode !== 'fullscreen') {
+    const phone = document.querySelector('.phone');
+    const w = Math.min(currentSizeMode === 'small' ? 332 : 462, window.innerWidth * 0.95);
+    phone.style.width = w + 'px';
+    phone.style.maxWidth = w + 'px';
+  }
+  requestAnimationFrame(resizeCanvas);
+}
+
+// iOS: viewport can settle late — retry resizeCanvas until clientWidth is non-zero
+function resizeCanvasRetry(attemptsLeft) {
+  if (canvas.clientWidth) { resizeCanvas(); return; }
+  if (attemptsLeft > 0) setTimeout(() => resizeCanvasRetry(attemptsLeft - 1), 100);
+}
+
+window.addEventListener('resize', recalcLayout);
+// orientationchange needs a delay on iOS for the new dimensions to be ready
+window.addEventListener('orientationchange', () => setTimeout(recalcLayout, 300));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', recalcLayout);
+}
+
 let snake, dir, inputQueue, food, score, gameOverScore, highScore, speed, gameLoop, state;
 
 
@@ -981,7 +1005,7 @@ function setSizeMode(mode) {
     phone.style.width = w + 'px';
     phone.style.maxWidth = w + 'px';
   }
-  requestAnimationFrame(resizeCanvas);
+  resizeCanvasRetry(8);
   document.querySelectorAll('[data-size]').forEach(b =>
     b.classList.toggle('active', b.dataset.size === mode));
 }
@@ -1206,6 +1230,9 @@ setDifficulty('easy');
 applyTheme(currentTheme);
 state = 'start';
 init();
+// Extra resize passes for iOS — layout can settle well after DOMContentLoaded
+setTimeout(recalcLayout, 150);
+setTimeout(recalcLayout, 600);
 </script>
 </body>
 </html>
