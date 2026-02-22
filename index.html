@@ -120,6 +120,21 @@
   }
   #themeBtn:active { transform: scale(0.88); }
 
+  #muteBtn {
+    position: absolute;
+    left: 26px;
+    background: none;
+    border: none;
+    color: var(--t-deep);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0.8;
+  }
+  #muteBtn:active { opacity: 0.5; }
+
   #fullscreenBtn {
     position: absolute;
     right: 0;
@@ -415,7 +430,7 @@
 <body>
 
 <div class="phone" data-theme="pink">
-  <div class="phone-brand"><button id="themeBtn" title="Change colour"></button>Family Truffles<button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button></div>
+  <div class="phone-brand"><button id="themeBtn" title="Change colour"></button><button id="muteBtn" title="Toggle music">🔊</button>Family Truffles<button id="fullscreenBtn" title="Fullscreen">&#x26F6;</button></div>
   <div class="screen-frame">
     <div class="ear ear-left"></div>
     <div class="ear ear-right"></div>
@@ -968,11 +983,13 @@ function togglePause() {
     state = 'paused';
     clearInterval(gameLoop);
     pauseOverlay.classList.remove('hidden');
+    stopMusic();
   } else if (state === 'paused') {
     state = 'playing';
     pauseOverlay.classList.add('hidden');
     gameLoop = setInterval(update, getSpeed());
     draw();
+    if (!musicMuted) startMusic();
   }
 }
 
@@ -1050,6 +1067,101 @@ function playSadOink() {
   osc.start(t); osc.stop(t + 0.75);
 }
 
+// --- Background Music ---
+const MN = (s) => 261.63 * Math.pow(2, s / 12); // semitones from C4 → Hz
+const MB = 60 / 138; // seconds per beat at 138 BPM
+
+// 16-beat chiptune loop: [beat_start, beat_duration, freq, wavetype, amplitude]
+const MUSIC_LOOP = [
+  // Melody (square wave)
+  [0,    0.5,  MN(4),   'square',   0.07], // E4
+  [0.5,  0.5,  MN(7),   'square',   0.07], // G4
+  [1,    1.5,  MN(9),   'square',   0.07], // A4
+  [2.5,  0.5,  MN(7),   'square',   0.07], // G4
+  [3,    1,    MN(4),   'square',   0.07], // E4
+  [4,    0.5,  MN(2),   'square',   0.07], // D4
+  [4.5,  0.5,  MN(4),   'square',   0.07], // E4
+  [5,    1.5,  MN(7),   'square',   0.07], // G4
+  [6.5,  0.5,  MN(4),   'square',   0.07], // E4
+  [7,    1,    MN(0),   'square',   0.07], // C4
+  [8,    0.5,  MN(7),   'square',   0.07], // G4
+  [8.5,  0.5,  MN(9),   'square',   0.07], // A4
+  [9,    1.5,  MN(12),  'square',   0.07], // C5
+  [10.5, 0.5,  MN(9),   'square',   0.07], // A4
+  [11,   1,    MN(7),   'square',   0.07], // G4
+  [12,   0.5,  MN(5),   'square',   0.07], // F4
+  [12.5, 0.5,  MN(4),   'square',   0.07], // E4
+  [13,   0.5,  MN(2),   'square',   0.07], // D4
+  [13.5, 0.5,  MN(4),   'square',   0.07], // E4
+  [14,   2,    MN(0),   'square',   0.07], // C4 (resolve)
+  // Bass (triangle wave)
+  [0,    1.8,  MN(-12), 'triangle', 0.14], // C3
+  [2,    1.8,  MN(-5),  'triangle', 0.14], // G3
+  [4,    1.8,  MN(-3),  'triangle', 0.14], // A3
+  [6,    1.8,  MN(-12), 'triangle', 0.14], // C3
+  [8,    1.8,  MN(-12), 'triangle', 0.14], // C3
+  [10,   1.8,  MN(-5),  'triangle', 0.14], // G3
+  [12,   1.8,  MN(-7),  'triangle', 0.14], // F3
+  [14,   1.8,  MN(-5),  'triangle', 0.14], // G3
+];
+
+let musicPlaying = false;
+let musicMuted = localStorage.getItem('pigSnakeMuted') === '1';
+let musicLoopTimer = null;
+let musicGain = null;
+
+function scheduleLoop(loopStart) {
+  if (!musicPlaying) return;
+  const ac = getAudio();
+  const loopDur = 16 * MB;
+  MUSIC_LOOP.forEach(([beat, dur, freq, type, vol]) => {
+    const t = loopStart + beat * MB;
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.connect(g);
+    g.connect(musicGain);
+    osc.type = type;
+    osc.frequency.value = freq;
+    const rel = Math.min(0.06, dur * MB * 0.2);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.012);
+    g.gain.setValueAtTime(vol, t + dur * MB - rel);
+    g.gain.linearRampToValueAtTime(0, t + dur * MB);
+    osc.start(t);
+    osc.stop(t + dur * MB + 0.05);
+  });
+  const nextStart = loopStart + loopDur;
+  const msUntil = (nextStart - ac.currentTime) * 1000 - 200;
+  musicLoopTimer = setTimeout(() => scheduleLoop(nextStart), Math.max(0, msUntil));
+}
+
+function startMusic() {
+  if (musicPlaying) return;
+  musicPlaying = true;
+  const ac = getAudio();
+  musicGain = ac.createGain();
+  musicGain.gain.value = musicMuted ? 0 : 0.45;
+  musicGain.connect(ac.destination);
+  scheduleLoop(ac.currentTime + 0.05);
+}
+
+function stopMusic() {
+  musicPlaying = false;
+  clearTimeout(musicLoopTimer);
+  if (musicGain) { try { musicGain.disconnect(); } catch(e) {} musicGain = null; }
+}
+
+function toggleMute() {
+  musicMuted = !musicMuted;
+  localStorage.setItem('pigSnakeMuted', musicMuted ? '1' : '0');
+  document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
+  if (musicMuted) {
+    stopMusic();
+  } else if (state === 'playing') {
+    startMusic();
+  }
+}
+
 function startGame() {
   state = 'playing';
   startOverlay.classList.add('hidden');
@@ -1059,6 +1171,8 @@ function startGame() {
   if (currentSizeMode === 'fullscreen' && !document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
+  stopMusic();
+  if (!musicMuted) startMusic();
   init();
   gameLoop = setInterval(update, getSpeed());
 }
@@ -1067,6 +1181,7 @@ function gameOver() {
   gameOverScore = score;
   state = 'gameover';
   clearInterval(gameLoop);
+  stopMusic();
   playSadOink();
   topScoresPromise = getTopScores(); // start fetch during flash animation
   let flashes = 0;
@@ -1223,6 +1338,9 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   const next = THEMES[(THEMES.indexOf(currentTheme) + 1) % THEMES.length];
   applyTheme(next);
 });
+
+document.getElementById('muteBtn').addEventListener('click', toggleMute);
+document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
 
 // --- Initial state ---
 setSizeMode('medium');
