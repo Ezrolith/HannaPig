@@ -732,6 +732,7 @@ if (window.visualViewport) {
 }
 
 let snake, dir, inputQueue, food, score, gameOverScore, highScore, speed, gameLoop, state;
+let bonusFood = null, bonusExpiry = 0, bonusFlashMsg = null;
 
 
 highScore = parseInt(localStorage.getItem('pigSnakeHighScore') || '0');
@@ -752,6 +753,9 @@ function init() {
   lengthLabel.textContent = 3;
   generateMud();
   placeFood();
+  bonusFood = null;
+  bonusExpiry = 0;
+  bonusFlashMsg = null;
   draw();
 }
 
@@ -768,6 +772,21 @@ function placeFood() {
     (attempts < 30 && Math.abs(pos.x - snake[0].x) + Math.abs(pos.y - snake[0].y) < 3)
   ));
   food = pos;
+}
+
+function spawnBonusFood() {
+  let pos, attempts = 0;
+  do {
+    pos = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+    attempts++;
+  } while (attempts < 100 && (
+    snake.some(s => s.x === pos.x && s.y === pos.y) ||
+    (pos.x === food.x && pos.y === food.y)
+  ));
+  const multiplier = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+  const duration = 3000 + Math.floor(Math.random() * 2001); // 3–5 seconds
+  bonusFood = { x: pos.x, y: pos.y, multiplier, duration };
+  bonusExpiry = Date.now() + duration;
 }
 
 function getSpeed() {
@@ -815,9 +834,24 @@ function update() {
       gameLoop = setInterval(update, getSpeed());
     }
     placeFood();
+    // ~30% chance to spawn a bonus item after score ≥ 3
+    if (score >= 3 && !bonusFood && Math.random() < 0.30) spawnBonusFood();
+  } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
+    playBonusEat();
+    const mult = bonusFood.multiplier;
+    score += mult;
+    bonusFood = null;
+    bonusFlashMsg = { x: head.x * CELL + CELL / 2, y: head.y * CELL + CELL / 2, mult, alpha: 1.0, frame: 0 };
+    scoreEl.textContent = score;
+    lengthLabel.textContent = snake.length;
+    const lv = getSpeedLevel();
+    if (lv !== speed) { speed = lv; speedLabel.textContent = speed; clearInterval(gameLoop); gameLoop = setInterval(update, getSpeed()); }
   } else {
     snake.pop();
   }
+
+  // Expire bonus food between ticks
+  if (bonusFood && Date.now() > bonusExpiry) bonusFood = null;
 
   draw();
 }
@@ -939,6 +973,57 @@ function drawApple(cx, cy) {
   ctx.fill();
 }
 
+function drawBonusFood(cx, cy, multiplier, timeLeft, duration) {
+  const s = CELL / 20;
+  const progress = timeLeft / duration;
+  // Flash rapidly when < 30% time remaining
+  if (progress < 0.30 && Math.floor(Date.now() / 110) % 2 === 0) return;
+
+  const pulse = 1 + Math.sin(Date.now() / 180) * 0.12;
+  const starR = 7 * s * pulse;
+  const innerR = starR * 0.42;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.shadowColor = '#ffdd00';
+  ctx.shadowBlur = 5 * s;
+
+  // Gold 5-pointed star
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI / 5) - Math.PI / 2;
+    const r = i % 2 === 0 ? starR : innerR;
+    if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+    else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Inner lighter highlight
+  ctx.fillStyle = '#fff4a0';
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI / 5) - Math.PI / 2;
+    const r = (i % 2 === 0 ? starR : innerR) * 0.52;
+    if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+    else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Multiplier label centred on star
+  ctx.shadowBlur = 0;
+  const fs = Math.max(8, Math.round(4.5 * s));
+  ctx.font = `bold ${fs}px Courier New, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#7a3800';
+  ctx.fillText(`\xD7${multiplier}`, 0, 0.5 * s);
+
+  ctx.restore();
+}
+
 function draw() {
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -997,6 +1082,37 @@ function draw() {
   const foodCx = food.x * CELL + CELL / 2;
   const foodCy = food.y * CELL + CELL / 2;
   drawApple(foodCx, foodCy);
+
+  // Draw bonus food star
+  if (bonusFood) {
+    const tl = bonusExpiry - Date.now();
+    if (tl > 0) {
+      drawBonusFood(bonusFood.x * CELL + CELL / 2, bonusFood.y * CELL + CELL / 2, bonusFood.multiplier, tl, bonusFood.duration);
+    } else {
+      bonusFood = null;
+    }
+  }
+
+  // Floating "+N!" message when bonus is eaten
+  if (bonusFlashMsg) {
+    bonusFlashMsg.frame++;
+    bonusFlashMsg.alpha = Math.max(0, bonusFlashMsg.alpha - 0.025);
+    if (bonusFlashMsg.alpha > 0) {
+      const fs = Math.max(10, Math.round(CELL * 0.75));
+      ctx.save();
+      ctx.globalAlpha = bonusFlashMsg.alpha;
+      ctx.font = `bold ${fs}px Courier New, monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(`+${bonusFlashMsg.mult}!`, bonusFlashMsg.x, bonusFlashMsg.y - bonusFlashMsg.frame * 1.2);
+      ctx.restore();
+    } else {
+      bonusFlashMsg = null;
+    }
+  }
 
   if (state === 'playing') {
     requestAnimationFrame(() => draw());
@@ -1084,6 +1200,22 @@ function playEatOink() {
   gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
   osc.start(t); osc.stop(t + 0.25);
+}
+function playBonusEat() {
+  const ac = getAudio();
+  const t = ac.currentTime;
+  // Rising arpeggio sparkle
+  [0, 4, 7, 12].forEach((semi, i) => {
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.connect(g); g.connect(ac.destination);
+    osc.type = 'square';
+    osc.frequency.value = 440 * Math.pow(2, semi / 12);
+    const st = t + i * 0.07;
+    g.gain.setValueAtTime(0, st);
+    g.gain.linearRampToValueAtTime(0.18, st + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 0.28);
+    osc.start(st); osc.stop(st + 0.32);
+  });
 }
 function playSadOink() {
   const ac = getAudio();
@@ -1379,11 +1511,20 @@ document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
 // --- Background Themes ---
 const BG_THEMES = ['dark', 'grass', 'mud', 'candy'];
 const BG_ICONS  = { dark: '🌑', grass: '🌿', mud: '🍂', candy: '🍭' };
+const BG_GRADIENTS = {
+  dark:  'linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a)',
+  grass: 'linear-gradient(180deg, #87ceeb 0%, #87ceeb 50%, #5a9e35 50%, #3d7a20 100%)',
+  mud:   'linear-gradient(135deg, #5c3d11, #3d2508, #6b4a1a)',
+  candy: 'linear-gradient(135deg, #ff80bf, #bf80ff, #80bfff)',
+};
 let currentBg = localStorage.getItem('pigSnakeBg') || 'dark';
 
 function applyBg(bg) {
   currentBg = bg;
-  document.body.dataset.bg = bg;
+  // Use inline styles on both html and body for reliable rendering on iOS
+  const grad = BG_GRADIENTS[bg];
+  document.documentElement.style.background = grad;
+  document.body.style.background = grad;
   document.getElementById('bgBtn').textContent = BG_ICONS[bg];
   localStorage.setItem('pigSnakeBg', bg);
 }
