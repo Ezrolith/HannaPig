@@ -1654,6 +1654,8 @@ if (state === 'paused' || state === 'leaderboard' || state === 'gameover') retur
 
 // --- Keyboard controls ---
 document.addEventListener('keydown', (e) => {
+  // Ignore keyboard shortcuts when typing in an input field
+  if (e.target.tagName === 'INPUT') return;
   if (e.key === 'p' || e.key === 'P') { e.preventDefault(); togglePause(); return; }
   const keyMap = {
     ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
