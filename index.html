@@ -491,6 +491,7 @@
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.10</span>
       <span>Chonk: <span id="lengthLabel">3</span></span>
     </div>
   </div>
@@ -1038,13 +1039,13 @@ function draw() {
   }
 
   mudSplats.forEach(m => {
-    ctx.fillStyle = `rgba(160, 120, 80, ${m.opacity})`;
+    ctx.fillStyle = `rgba(${boardMud[0]},${boardMud[1]},${boardMud[2]},${m.opacity})`;
     ctx.beginPath();
     ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
     ctx.fill();
   });
 
-  ctx.fillStyle = 'rgba(160, 120, 80, 0.12)';
+  ctx.fillStyle = `rgba(${boardMud[0]},${boardMud[1]},${boardMud[2]},0.12)`;
   for (let i = 0; i < 6; i++) {
     const hx = ((i * 97 + 23) % GRID) * CELL + CELL / 2;
     const hy = ((i * 53 + 11) % GRID) * CELL + CELL / 2;
@@ -1511,22 +1512,24 @@ document.getElementById('muteBtn').textContent = musicMuted ? '🔇' : '🔊';
 // --- Background Themes ---
 const BG_THEMES = ['dark', 'grass', 'mud', 'candy'];
 const BG_ICONS  = { dark: '🌑', grass: '🌿', mud: '🍂', candy: '🍭' };
-const BG_GRADIENTS = {
-  dark:  'linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a)',
-  grass: 'linear-gradient(180deg, #87ceeb 0%, #87ceeb 50%, #5a9e35 50%, #3d7a20 100%)',
-  mud:   'linear-gradient(135deg, #5c3d11, #3d2508, #6b4a1a)',
-  candy: 'linear-gradient(135deg, #ff80bf, #bf80ff, #80bfff)',
+const BOARD_THEMES = {
+  dark:  { bg: '#f2d9c0', bgAlt: '#e8ceb0', mud: [160, 120,  80] }, // warm beige (default)
+  grass: { bg: '#bde8a0', bgAlt: '#9dd080', mud: [ 60, 120,  40] }, // soft greens
+  mud:   { bg: '#c9a070', bgAlt: '#b08050', mud: [ 90,  55,  20] }, // earthy brown
+  candy: { bg: '#ffd0e8', bgAlt: '#f8b0d8', mud: [200,  80, 160] }, // pastel pink
 };
+let boardMud = [160, 120, 80]; // current mud/hoof tint — updated by applyBg
 let currentBg = localStorage.getItem('pigSnakeBg') || 'dark';
 
 function applyBg(bg) {
   currentBg = bg;
-  // Use inline styles on both html and body for reliable rendering on iOS
-  const grad = BG_GRADIENTS[bg];
-  document.documentElement.style.background = grad;
-  document.body.style.background = grad;
+  const t = BOARD_THEMES[bg];
+  COLORS.bg    = t.bg;
+  COLORS.bgAlt = t.bgAlt;
+  boardMud     = t.mud;
   document.getElementById('bgBtn').textContent = BG_ICONS[bg];
   localStorage.setItem('pigSnakeBg', bg);
+  if (snake) generateMud(); // refresh mud splats when switching mid-game
 }
 document.getElementById('bgBtn').addEventListener('click', () => {
   applyBg(BG_THEMES[(BG_THEMES.indexOf(currentBg) + 1) % BG_THEMES.length]);
