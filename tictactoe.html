@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HannaPig">
+<meta name="theme-color" content="#e88da5">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>HannaPig Tic-Tac-Toe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body {
+    background: linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Courier New', monospace;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  body[data-bg="dark"]  { background: linear-gradient(135deg, #4a2030, #2e1525, #3a1a2a); }
+  body[data-bg="grass"] { background: linear-gradient(180deg, #87ceeb 0%, #87ceeb 50%, #5a9e35 50%, #3d7a20 100%); }
+  body[data-bg="mud"]   { background: linear-gradient(135deg, #5c3d11, #3d2508, #6b4a1a); }
+  body[data-bg="candy"] { background: linear-gradient(135deg, #ff80bf, #bf80ff, #80bfff); }
+
+  .phone {
+    --t-light: #f5a0b8; --t-mid: #e88da5; --t-dark: #d87a95;
+    --t-border: #c06880; --t-deep: #8b3a55; --t-deepest: #6b2040;
+    --t-pale: #f0a0b8; --t-muted: #a06070;
+    --t-shadow: rgba(245,160,184,0.3);
+    --t-border-dim: rgba(192,104,128,0.1);
+    --t-deep-dim: rgba(139,58,85,0.25);
+    --t-active-bg: rgba(192,104,128,0.2);
+  }
+  .phone[data-theme="yellow"] {
+    --t-light: #f5d890; --t-mid: #e8c060; --t-dark: #d8a840;
+    --t-border: #b88820; --t-deep: #7a5c0a; --t-deepest: #5a3e00;
+    --t-pale: #f8e8a0; --t-muted: #907840;
+    --t-shadow: rgba(245,216,144,0.35);
+    --t-border-dim: rgba(184,136,32,0.12);
+    --t-deep-dim: rgba(122,92,10,0.25);
+    --t-active-bg: rgba(184,136,32,0.2);
+  }
+  .phone[data-theme="green"] {
+    --t-light: #a0d890; --t-mid: #7cc06a; --t-dark: #60a850;
+    --t-border: #3e8030; --t-deep: #245218; --t-deepest: #12380a;
+    --t-pale: #c0e8b0; --t-muted: #508048;
+    --t-shadow: rgba(160,216,144,0.35);
+    --t-border-dim: rgba(62,128,48,0.12);
+    --t-deep-dim: rgba(36,82,24,0.25);
+    --t-active-bg: rgba(62,128,48,0.2);
+  }
+  .phone[data-theme="blue"] {
+    --t-light: #a0b8f0; --t-mid: #7898e0; --t-dark: #6080d0;
+    --t-border: #4060b8; --t-deep: #1e3888; --t-deepest: #102060;
+    --t-pale: #c0d0f8; --t-muted: #5070a0;
+    --t-shadow: rgba(160,184,240,0.35);
+    --t-border-dim: rgba(64,96,184,0.12);
+    --t-deep-dim: rgba(30,56,136,0.25);
+    --t-active-bg: rgba(64,96,184,0.2);
+  }
+
+  .phone {
+    background: linear-gradient(180deg, var(--t-light), var(--t-mid), var(--t-dark));
+    border-radius: 24px;
+    padding: 20px 16px 24px;
+    box-shadow: 0 0 50px var(--t-shadow), inset 0 2px 4px rgba(255,255,255,0.3);
+    border: 3px solid var(--t-border);
+    width: min(88vw, 420px);
+    max-width: 420px;
+  }
+
+  .phone-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--t-deep);
+    font-size: 15px;
+    letter-spacing: 5px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    font-weight: bold;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    position: relative;
+  }
+
+  #themeBtn {
+    position: absolute;
+    left: 0;
+    background: var(--t-mid);
+    border: 2px solid var(--t-border);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.1s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  #themeBtn:active { transform: scale(0.88); }
+
+  #bgBtn {
+    position: absolute;
+    right: 0;
+    background: none;
+    border: none;
+    color: var(--t-deep);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0.8;
+  }
+  #bgBtn:active { opacity: 0.5; }
+
+  .screen-frame {
+    background: #2a1520;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 14px;
+    border: 2px solid #1a0a10;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  .ear {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: var(--t-pale);
+    border: 2px solid var(--t-border);
+    top: -8px;
+    border-radius: 50% 50% 10% 10%;
+    z-index: 1;
+  }
+  .ear-left { left: 18px; transform: rotate(-15deg); }
+  .ear-right { right: 18px; transform: rotate(15deg); }
+
+  .screen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+
+  .score-label { color: var(--t-pale); font-size: 12px; }
+  .status-label { color: var(--t-border); font-size: 11px; }
+
+  .board-wrapper {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #f2d9c0;
+    image-rendering: pixelated;
+    border: 2px solid #c4a080;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(242, 217, 192, 0.94);
+    border-radius: 4px;
+    z-index: 2;
+  }
+  .overlay.hidden { display: none; }
+  .overlay-pig { font-size: 40px; margin-bottom: 4px; }
+  .overlay-title {
+    font-size: 20px;
+    color: #8b3a55;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+  .overlay-text {
+    font-size: 12px;
+    color: #a06070;
+    margin-bottom: 3px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-btn {
+    background: var(--t-dark);
+    border: 2px solid var(--t-border);
+    border-radius: 8px;
+    color: var(--t-deepest);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 5px 12px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ctrl-btn:hover { background: var(--t-border); color: #fff; }
+  .ctrl-btn.active { background: var(--t-deep); color: var(--t-pale); border-color: var(--t-deepest); }
+
+  .pig-feet {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    margin-top: 6px;
+  }
+
+  .pig-foot {
+    width: 20px;
+    height: 12px;
+    background: var(--t-dark);
+    border-radius: 50%;
+    border: 2px solid var(--t-border);
+    position: relative;
+  }
+  .pig-foot::before {
+    content: '';
+    position: absolute;
+    top: 2px; left: 3px;
+    width: 4px; height: 5px;
+    background: var(--t-border);
+    border-radius: 50%;
+  }
+  .pig-foot::after {
+    content: '';
+    position: absolute;
+    top: 2px; right: 3px;
+    width: 4px; height: 5px;
+    background: var(--t-border);
+    border-radius: 50%;
+  }
+
+  .screen-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 4px;
+  }
+  .screen-footer span { color: var(--t-pale); font-size: 11px; }
+
+  /* Win line animation */
+  @keyframes winPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-4px, 2px); }
+    20% { transform: translate(4px, -2px); }
+    30% { transform: translate(-3px, -3px); }
+    40% { transform: translate(3px, 3px); }
+    50% { transform: translate(-2px, 1px); }
+    60% { transform: translate(2px, -1px); }
+    70% { transform: translate(-1px, 2px); }
+    80% { transform: translate(1px, -1px); }
+    90% { transform: translate(-1px, 0); }
+  }
+  .screen-frame.shake { animation: shake 0.4s ease-out; }
+
+  @media (max-height: 550px) {
+    .phone { padding: 12px 12px 16px; border-radius: 16px; }
+    .phone-brand { font-size: 13px; margin-bottom: 6px; }
+  }
+
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 8px;
+    color: var(--t-pale);
+    font-size: 11px;
+    text-decoration: none;
+    opacity: 0.6;
+    letter-spacing: 1px;
+  }
+  .back-link:hover { opacity: 1; }
+</style>
+</head>
+<body data-bg="dark">
+
+<div class="phone" data-theme="pink">
+  <div class="phone-brand">
+    <button id="themeBtn" title="Change colour"></button>
+    Family Truffles
+    <button id="bgBtn" title="Change background">&#x1F311;</button>
+  </div>
+  <div class="screen-frame" id="screenFrame">
+    <div class="ear ear-left"></div>
+    <div class="ear ear-right"></div>
+    <div class="screen-header">
+      <span class="score-label">&#x1F437; <span id="xScore">0</span> &mdash; &#x1F43B; <span id="oScore">0</span></span>
+      <span class="status-label" id="statusLabel">Pig's turn!</span>
+    </div>
+    <div class="board-wrapper">
+      <canvas id="board" width="300" height="300"></canvas>
+      <div class="overlay" id="startOverlay">
+        <div class="overlay-pig">&#x1F437;</div>
+        <div class="overlay-title">TIC-TAC-TOE</div>
+        <div class="overlay-text">Tap to start oinking!</div>
+      </div>
+      <div class="overlay hidden" id="resultOverlay">
+        <div class="overlay-pig" id="resultEmoji">&#x1F437;</div>
+        <div class="overlay-title" id="resultTitle">PIG WINS!</div>
+        <div class="overlay-text" id="resultText">Oink oink!</div>
+        <div class="overlay-text" style="margin-top:6px; font-size:11px; opacity:0.7">Tap to play again</div>
+      </div>
+    </div>
+    <div class="screen-footer">
+      <span>Draws: <span id="drawCount">0</span></span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.0</span>
+      <span>Round: <span id="roundCount">1</span></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn active" data-mode="2p">2 Player</button>
+    <button class="ctrl-btn" data-mode="easy">VS Pig (Easy)</button>
+    <button class="ctrl-btn" data-mode="hard">VS Pig (Hard)</button>
+  </div>
+  <div class="controls" style="margin-top:6px">
+    <button class="ctrl-btn" id="resetBtn">Reset Scores</button>
+  </div>
+
+  <div class="pig-feet">
+    <div class="pig-foot"></div>
+    <div class="pig-foot"></div>
+  </div>
+  <a href="index.html" class="back-link">&laquo; Back to Snake</a>
+</div>
+
+<script>
+// --- Canvas Setup ---
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const statusLabel = document.getElementById('statusLabel');
+const xScoreEl = document.getElementById('xScore');
+const oScoreEl = document.getElementById('oScore');
+const drawCountEl = document.getElementById('drawCount');
+const roundCountEl = document.getElementById('roundCount');
+const startOverlay = document.getElementById('startOverlay');
+const resultOverlay = document.getElementById('resultOverlay');
+const resultEmoji = document.getElementById('resultEmoji');
+const resultTitle = document.getElementById('resultTitle');
+const resultText = document.getElementById('resultText');
+const screenFrame = document.getElementById('screenFrame');
+
+// --- Game State ---
+let board = Array(9).fill(null); // null, 'X', 'O'
+let currentPlayer = 'X'; // X = pig, O = bear
+let gameActive = false;
+let gameStarted = false;
+let xScore = 0, oScore = 0, draws = 0, round = 1;
+let winLine = null; // { cells: [i, j, k], progress: 0 }
+let winAnimFrame = null;
+let mode = '2p'; // '2p', 'easy', 'hard'
+let aiThinking = false;
+
+const CELL = 100; // logical cell size (canvas is 300x300)
+
+// Board colors
+const BOARD_THEMES = {
+  dark:  { bg: '#f2d9c0', bgAlt: '#e8ceb0', line: '#c4a080', mud: [160,120,80] },
+  grass: { bg: '#bde8a0', bgAlt: '#9dd080', line: '#78b050', mud: [60,120,40] },
+  mud:   { bg: '#c9a070', bgAlt: '#b08050', line: '#8a6030', mud: [90,55,20] },
+  candy: { bg: '#ffd0e8', bgAlt: '#f8b0d8', line: '#e090c0', mud: [200,80,160] },
+};
+
+let currentBg = localStorage.getItem('pigSnakeBg') || 'dark';
+let boardColors = BOARD_THEMES[currentBg] || BOARD_THEMES.dark;
+
+// --- Drawing ---
+function resizeCanvas() {
+  const size = canvas.clientWidth;
+  if (!size) return;
+  canvas.width = size;
+  canvas.height = size;
+  drawBoard();
+}
+new ResizeObserver(resizeCanvas).observe(canvas);
+
+function drawBoard() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const cellW = w / 3;
+  const cellH = h / 3;
+
+  // Background
+  ctx.fillStyle = boardColors.bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // Alternating cells
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if ((r + c) % 2 === 0) {
+        ctx.fillStyle = boardColors.bgAlt;
+        ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+      }
+    }
+  }
+
+  // Grid lines
+  ctx.strokeStyle = boardColors.line;
+  ctx.lineWidth = Math.max(2, w * 0.012);
+  ctx.lineCap = 'round';
+
+  // Vertical lines
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * cellW, cellH * 0.08);
+    ctx.lineTo(i * cellW, h - cellH * 0.08);
+    ctx.stroke();
+  }
+  // Horizontal lines
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cellW * 0.08, i * cellH);
+    ctx.lineTo(w - cellW * 0.08, i * cellH);
+    ctx.stroke();
+  }
+
+  // Draw pieces
+  for (let i = 0; i < 9; i++) {
+    if (board[i]) {
+      const r = Math.floor(i / 3);
+      const c = i % 3;
+      const cx = c * cellW + cellW / 2;
+      const cy = r * cellH + cellH / 2;
+      if (board[i] === 'X') {
+        drawPig(cx, cy, cellW * 0.35);
+      } else {
+        drawBear(cx, cy, cellW * 0.35);
+      }
+    }
+  }
+
+  // Draw win line
+  if (winLine && winLine.progress > 0) {
+    const [a, , b] = winLine.cells;
+    const ra = Math.floor(a / 3), ca = a % 3;
+    const rb = Math.floor(b / 3), cb = b % 3;
+    const x1 = ca * cellW + cellW / 2;
+    const y1 = ra * cellH + cellH / 2;
+    const x2 = cb * cellW + cellW / 2;
+    const y2 = rb * cellH + cellH / 2;
+
+    const px = x1 + (x2 - x1) * winLine.progress;
+    const py = y1 + (y2 - y1) * winLine.progress;
+
+    ctx.save();
+    ctx.strokeStyle = '#cc3333';
+    ctx.lineWidth = Math.max(4, w * 0.025);
+    ctx.lineCap = 'round';
+    ctx.shadowColor = '#cc3333';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawPig(cx, cy, r) {
+  const s = r / 10;
+
+  // Head
+  ctx.fillStyle = '#f5a0b8';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#c06080';
+  ctx.lineWidth = s * 1.2;
+  ctx.stroke();
+
+  // Ears
+  ctx.fillStyle = '#e8789a';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.55, cy - r * 0.6, r * 0.22, r * 0.3, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#c06080';
+  ctx.lineWidth = s * 0.8;
+  ctx.stroke();
+
+  ctx.fillStyle = '#e8789a';
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.55, cy - r * 0.6, r * 0.22, r * 0.3, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#c06080';
+  ctx.lineWidth = s * 0.8;
+  ctx.stroke();
+
+  // Inner ears
+  ctx.fillStyle = '#f0c0c8';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.55, cy - r * 0.6, r * 0.12, r * 0.18, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.55, cy - r * 0.6, r * 0.12, r * 0.18, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#2a1520';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.28, cy - r * 0.15, r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.28, cy - r * 0.15, r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye shine
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.25, cy - r * 0.18, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.31, cy - r * 0.18, r * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Snout
+  ctx.fillStyle = '#f0c0c8';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r * 0.2, r * 0.35, r * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#c06080';
+  ctx.lineWidth = s * 0.8;
+  ctx.stroke();
+
+  // Nostrils
+  ctx.fillStyle = '#c06080';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.12, cy + r * 0.22, r * 0.07, r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.12, cy + r * 0.22, r * 0.07, r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth (smile)
+  ctx.strokeStyle = '#c06080';
+  ctx.lineWidth = s * 0.8;
+  ctx.beginPath();
+  ctx.arc(cx, cy + r * 0.15, r * 0.2, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+}
+
+function drawBear(cx, cy, r) {
+  const s = r / 10;
+
+  // Ears
+  ctx.fillStyle = '#8B6040';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.6, cy - r * 0.55, r * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#5a3a20';
+  ctx.lineWidth = s * 1.0;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.6, cy - r * 0.55, r * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#5a3a20';
+  ctx.lineWidth = s * 1.0;
+  ctx.stroke();
+
+  // Inner ears
+  ctx.fillStyle = '#c09070';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.6, cy - r * 0.55, r * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.6, cy - r * 0.55, r * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#a07050';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#5a3a20';
+  ctx.lineWidth = s * 1.2;
+  ctx.stroke();
+
+  // Eyes
+  ctx.fillStyle = '#2a1520';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.28, cy - r * 0.12, r * 0.09, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.28, cy - r * 0.12, r * 0.09, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye shine
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.25, cy - r * 0.15, r * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.31, cy - r * 0.15, r * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Muzzle
+  ctx.fillStyle = '#c09878';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r * 0.2, r * 0.32, r * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Nose
+  ctx.fillStyle = '#3a2010';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r * 0.1, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Nose shine
+  ctx.fillStyle = '#6a5040';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.03, cy + r * 0.07, r * 0.04, r * 0.025, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth
+  ctx.strokeStyle = '#5a3a20';
+  ctx.lineWidth = s * 0.8;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + r * 0.18);
+  ctx.lineTo(cx, cy + r * 0.28);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy + r * 0.22, r * 0.12, 0.3, Math.PI - 0.3);
+  ctx.stroke();
+}
+
+// --- Sound Effects ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playPlace() {
+  const ac = getAudio();
+  const osc = ac.createOscillator(), gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'sine';
+  const t = ac.currentTime;
+  osc.frequency.setValueAtTime(500, t);
+  osc.frequency.linearRampToValueAtTime(700, t + 0.06);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(0.15, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  osc.start(t); osc.stop(t + 0.15);
+}
+
+function playWin() {
+  const ac = getAudio();
+  const t = ac.currentTime;
+  [0, 4, 7, 12].forEach((semi, i) => {
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.connect(g); g.connect(ac.destination);
+    osc.type = 'square';
+    osc.frequency.value = 440 * Math.pow(2, semi / 12);
+    const st = t + i * 0.1;
+    g.gain.setValueAtTime(0, st);
+    g.gain.linearRampToValueAtTime(0.12, st + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 0.35);
+    osc.start(st); osc.stop(st + 0.4);
+  });
+}
+
+function playDraw() {
+  const ac = getAudio();
+  const osc = ac.createOscillator(), gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'triangle';
+  const t = ac.currentTime;
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.linearRampToValueAtTime(200, t + 0.3);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  osc.start(t); osc.stop(t + 0.4);
+}
+
+// --- Win Detection ---
+const WIN_LINES = [
+  [0,1,2], [3,4,5], [6,7,8], // rows
+  [0,3,6], [1,4,7], [2,5,8], // cols
+  [0,4,8], [2,4,6],           // diagonals
+];
+
+function checkWin(b) {
+  for (const line of WIN_LINES) {
+    const [a, bb, c] = line;
+    if (b[a] && b[a] === b[bb] && b[a] === b[c]) {
+      return { winner: b[a], cells: line };
+    }
+  }
+  return null;
+}
+
+function checkDraw(b) {
+  return b.every(cell => cell !== null);
+}
+
+// --- AI ---
+function getAIMove(b, difficulty) {
+  if (difficulty === 'hard') return getBestMove(b);
+  // Easy: 40% random, 60% best
+  if (Math.random() < 0.4) {
+    const empty = b.map((v, i) => v === null ? i : -1).filter(i => i >= 0);
+    return empty[Math.floor(Math.random() * empty.length)];
+  }
+  return getBestMove(b);
+}
+
+function getBestMove(b) {
+  let bestScore = -Infinity;
+  let bestMove = -1;
+  for (let i = 0; i < 9; i++) {
+    if (b[i] !== null) continue;
+    b[i] = 'O';
+    const sc = minimax(b, 0, false, -Infinity, Infinity);
+    b[i] = null;
+    if (sc > bestScore) {
+      bestScore = sc;
+      bestMove = i;
+    }
+  }
+  return bestMove;
+}
+
+function minimax(b, depth, isMax, alpha, beta) {
+  const result = checkWin(b);
+  if (result) return result.winner === 'O' ? 10 - depth : depth - 10;
+  if (checkDraw(b)) return 0;
+
+  if (isMax) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] !== null) continue;
+      b[i] = 'O';
+      best = Math.max(best, minimax(b, depth + 1, false, alpha, beta));
+      b[i] = null;
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (b[i] !== null) continue;
+      b[i] = 'X';
+      best = Math.min(best, minimax(b, depth + 1, true, alpha, beta));
+      b[i] = null;
+      beta = Math.min(beta, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  }
+}
+
+// --- Win Line Animation ---
+function animateWinLine(cells, callback) {
+  winLine = { cells, progress: 0 };
+  const duration = 300;
+  const start = performance.now();
+
+  function step(ts) {
+    const elapsed = ts - start;
+    winLine.progress = Math.min(1, elapsed / duration);
+    drawBoard();
+    if (winLine.progress < 1) {
+      winAnimFrame = requestAnimationFrame(step);
+    } else {
+      winAnimFrame = null;
+      callback();
+    }
+  }
+  winAnimFrame = requestAnimationFrame(step);
+}
+
+// --- Game Logic ---
+function handleClick(cellIndex) {
+  if (!gameActive || board[cellIndex] !== null || aiThinking) return;
+
+  board[cellIndex] = currentPlayer;
+  playPlace();
+  drawBoard();
+
+  const result = checkWin(board);
+  if (result) {
+    gameActive = false;
+    animateWinLine(result.cells, () => showResult(result.winner));
+    return;
+  }
+  if (checkDraw(board)) {
+    gameActive = false;
+    setTimeout(() => showResult(null), 200);
+    return;
+  }
+
+  currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+  updateStatus();
+
+  // AI turn
+  if (mode !== '2p' && currentPlayer === 'O' && gameActive) {
+    aiThinking = true;
+    statusLabel.textContent = 'Bear thinking...';
+    setTimeout(() => {
+      if (!gameActive) { aiThinking = false; return; }
+      const move = getAIMove(board, mode === 'hard' ? 'hard' : 'easy');
+      if (move >= 0) {
+        board[move] = 'O';
+        playPlace();
+        drawBoard();
+
+        const aiResult = checkWin(board);
+        if (aiResult) {
+          gameActive = false;
+          aiThinking = false;
+          animateWinLine(aiResult.cells, () => showResult(aiResult.winner));
+          return;
+        }
+        if (checkDraw(board)) {
+          gameActive = false;
+          aiThinking = false;
+          setTimeout(() => showResult(null), 200);
+          return;
+        }
+
+        currentPlayer = 'X';
+        updateStatus();
+      }
+      aiThinking = false;
+    }, 350 + Math.random() * 300);
+  }
+}
+
+function showResult(winner) {
+  if (winner === 'X') {
+    xScore++;
+    xScoreEl.textContent = xScore;
+    resultEmoji.textContent = '\u{1F437}';
+    resultTitle.textContent = 'PIG WINS!';
+    resultText.textContent = 'Oink oink!';
+    playWin();
+  } else if (winner === 'O') {
+    oScore++;
+    oScoreEl.textContent = oScore;
+    resultEmoji.textContent = '\u{1F43B}';
+    resultTitle.textContent = 'BEAR WINS!';
+    resultText.textContent = 'Growl!';
+    // Shake on loss
+    screenFrame.classList.remove('shake');
+    void screenFrame.offsetWidth;
+    screenFrame.classList.add('shake');
+    screenFrame.addEventListener('animationend', () => screenFrame.classList.remove('shake'), { once: true });
+    playWin();
+  } else {
+    draws++;
+    drawCountEl.textContent = draws;
+    resultEmoji.textContent = '\u{1F91D}';
+    resultTitle.textContent = "IT'S A TIE!";
+    resultText.textContent = 'Friends forever!';
+    playDraw();
+  }
+
+  setTimeout(() => {
+    resultOverlay.classList.remove('hidden');
+  }, 150);
+}
+
+function updateStatus() {
+  if (currentPlayer === 'X') {
+    statusLabel.textContent = mode === '2p' ? "Pig's turn!" : "Your turn!";
+  } else {
+    statusLabel.textContent = mode === '2p' ? "Bear's turn!" : "Bear thinking...";
+  }
+}
+
+function newRound() {
+  board = Array(9).fill(null);
+  currentPlayer = 'X';
+  gameActive = true;
+  winLine = null;
+  aiThinking = false;
+  if (winAnimFrame) { cancelAnimationFrame(winAnimFrame); winAnimFrame = null; }
+  round++;
+  roundCountEl.textContent = round;
+  resultOverlay.classList.add('hidden');
+  updateStatus();
+  drawBoard();
+}
+
+function startGame() {
+  gameStarted = true;
+  gameActive = true;
+  startOverlay.classList.add('hidden');
+  resultOverlay.classList.add('hidden');
+  board = Array(9).fill(null);
+  currentPlayer = 'X';
+  winLine = null;
+  updateStatus();
+  drawBoard();
+}
+
+// --- Canvas Click ---
+canvas.addEventListener('click', (e) => {
+  if (!gameStarted) { startGame(); return; }
+  if (!gameActive) { newRound(); return; }
+
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  const col = Math.floor(x * 3);
+  const row = Math.floor(y * 3);
+  if (col < 0 || col > 2 || row < 0 || row > 2) return;
+  handleClick(row * 3 + col);
+});
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (!gameStarted) { startGame(); return; }
+  if (!gameActive) { newRound(); return; }
+
+  const touch = e.changedTouches[0];
+  const rect = canvas.getBoundingClientRect();
+  const x = (touch.clientX - rect.left) / rect.width;
+  const y = (touch.clientY - rect.top) / rect.height;
+  const col = Math.floor(x * 3);
+  const row = Math.floor(y * 3);
+  if (col < 0 || col > 2 || row < 0 || row > 2) return;
+  handleClick(row * 3 + col);
+}, { passive: false });
+
+// Prevent double-fire from click after touch
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+
+// --- Start overlay tap ---
+startOverlay.addEventListener('click', () => startGame());
+resultOverlay.addEventListener('click', () => { if (!gameActive) newRound(); });
+
+// --- Mode Buttons ---
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    // Reset current game
+    board = Array(9).fill(null);
+    currentPlayer = 'X';
+    gameActive = gameStarted;
+    winLine = null;
+    aiThinking = false;
+    if (winAnimFrame) { cancelAnimationFrame(winAnimFrame); winAnimFrame = null; }
+    resultOverlay.classList.add('hidden');
+    updateStatus();
+    drawBoard();
+  });
+});
+
+// --- Reset Button ---
+document.getElementById('resetBtn').addEventListener('click', () => {
+  xScore = 0; oScore = 0; draws = 0; round = 1;
+  xScoreEl.textContent = 0;
+  oScoreEl.textContent = 0;
+  drawCountEl.textContent = 0;
+  roundCountEl.textContent = 1;
+  board = Array(9).fill(null);
+  currentPlayer = 'X';
+  gameActive = gameStarted;
+  winLine = null;
+  aiThinking = false;
+  if (winAnimFrame) { cancelAnimationFrame(winAnimFrame); winAnimFrame = null; }
+  resultOverlay.classList.add('hidden');
+  updateStatus();
+  drawBoard();
+});
+
+// --- Theme ---
+const THEMES = ['pink', 'yellow', 'green', 'blue'];
+let currentTheme = localStorage.getItem('pigSnakeTheme') || 'pink';
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.querySelector('.phone').dataset.theme = theme;
+  localStorage.setItem('pigSnakeTheme', theme);
+}
+
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const next = THEMES[(THEMES.indexOf(currentTheme) + 1) % THEMES.length];
+  applyTheme(next);
+});
+
+// --- Background ---
+const BG_THEMES = ['dark', 'grass', 'mud', 'candy'];
+const BG_ICONS = { dark: '\u{1F311}', grass: '\u{1F33F}', mud: '\u{1F342}', candy: '\u{1F36D}' };
+
+function applyBg(bg) {
+  currentBg = bg;
+  boardColors = BOARD_THEMES[bg] || BOARD_THEMES.dark;
+  document.body.dataset.bg = bg;
+  document.getElementById('bgBtn').textContent = BG_ICONS[bg];
+  localStorage.setItem('pigSnakeBg', bg);
+  drawBoard();
+}
+
+document.getElementById('bgBtn').addEventListener('click', () => {
+  applyBg(BG_THEMES[(BG_THEMES.indexOf(currentBg) + 1) % BG_THEMES.length]);
+});
+
+// Prevent iOS overscroll
+document.addEventListener('touchmove', (e) => {
+  if (!e.target.closest('.board-wrapper')) e.preventDefault();
+}, { passive: false });
+
+// --- Init ---
+applyTheme(currentTheme);
+applyBg(currentBg);
+drawBoard();
+</script>
+</body>
+</html>
