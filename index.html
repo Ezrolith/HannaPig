@@ -754,6 +754,7 @@ if (window.visualViewport) {
 }
 
 let snake, dir, inputQueue, food, score, gameOverScore, highScore, speed, gameLoop, state;
+let drawRAFPending = false; // guard against rAF chain accumulation
 let bonusFood = null, bonusExpiry = 0, bonusFlashMsg = null;
 let flashMessages = []; // floating "+N" popups
 let speedUpBanner = null; // "SPEED UP!" notification
@@ -1378,8 +1379,9 @@ function draw() {
   // Particle effects
   updateAndDrawParticles();
 
-  if (state === 'playing') {
-    requestAnimationFrame(() => draw());
+  if (state === 'playing' && !drawRAFPending) {
+    drawRAFPending = true;
+    requestAnimationFrame(() => { drawRAFPending = false; draw(); });
   }
 }
 
@@ -1601,10 +1603,13 @@ function startGame() {
   if (currentSizeMode === 'fullscreen' && !document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
-  stopMusic();
-  if (!musicMuted) startMusic();
+  // Reset game state and start game loop BEFORE audio, so an audio
+  // exception can never leave us in state='playing' with stale data
+  // and no game loop (which let players resume from their last death).
+  clearInterval(gameLoop);
   init();
   gameLoop = setInterval(update, getSpeed());
+  try { stopMusic(); if (!musicMuted) startMusic(); } catch(e) { /* audio optional */ }
 }
 
 function gameOver() {
