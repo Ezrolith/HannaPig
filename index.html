@@ -503,6 +503,15 @@
         <div class="overlay-title">PAUSED</div>
         <div class="overlay-text">Tap &#x25CF; to continue</div>
       </div>
+      <div class="overlay hidden" id="resetNotice">
+        <div class="overlay-pig">&#x1F4E2;</div>
+        <div class="overlay-title">SCORES RESET</div>
+        <div class="overlay-text">High scores have been cleared</div>
+        <div class="overlay-text">as a one-time update.</div>
+        <div class="overlay-text" style="margin-top:4px">Each difficulty now tracks</div>
+        <div class="overlay-text">its own best score!</div>
+        <button class="play-again-btn" id="resetNoticeOk" style="margin-top:10px">OK!</button>
+      </div>
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
@@ -1814,6 +1823,24 @@ function applyBg(bg) {
 document.getElementById('bgBtn').addEventListener('click', () => {
   applyBg(BG_THEMES[(BG_THEMES.indexOf(currentBg) + 1) % BG_THEMES.length]);
 });
+
+// --- One-time high score reset (REMOVE THIS BLOCK LATER) ---
+if (!localStorage.getItem('pigSnakeScoresReset_v1')) {
+  localStorage.removeItem('pigSnakeHighScore');
+  localStorage.removeItem('pigSnakeHighScore_easy');
+  localStorage.removeItem('pigSnakeHighScore_normal');
+  localStorage.removeItem('pigSnakeHighScore_hard');
+  localStorage.setItem('pigSnakeScoresReset_v1', '1');
+  const notice = document.getElementById('resetNotice');
+  const startOv = document.getElementById('startOverlay');
+  startOv.classList.add('hidden');
+  notice.classList.remove('hidden');
+  document.getElementById('resetNoticeOk').addEventListener('click', () => {
+    notice.classList.add('hidden');
+    startOv.classList.remove('hidden');
+  });
+}
+// --- END one-time reset block ---
 
 // --- Initial state ---
 setSizeMode('medium');
