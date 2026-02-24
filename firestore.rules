@@ -17,8 +17,7 @@ service cloud.firestore {
         request.resource.data.name.size() <= 20 &&
 
         // score must be a non-negative integer within a realistic range
-        request.resource.data.score is number &&
-        request.resource.data.score == request.resource.data.score.toInt() &&
+        request.resource.data.score is int &&
         request.resource.data.score >= 0 &&
         request.resource.data.score <= 1000 &&
 
