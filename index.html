@@ -557,7 +557,7 @@
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
-      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.14</span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.15</span>
       <span>Chonk: <span id="lengthLabel">3</span></span>
     </div>
   </div>
@@ -1683,43 +1683,148 @@ function playSadOink() {
   osc.start(t); osc.stop(t + 0.75);
 }
 
-// --- Background Music ---
+// --- Background Music (per-difficulty) ---
 const MN = (s) => 261.63 * Math.pow(2, s / 12); // semitones from C4 → Hz
-const MB = 60 / 138; // seconds per beat at 138 BPM
 
-// 16-beat chiptune loop: [beat_start, beat_duration, freq, wavetype, amplitude]
-const MUSIC_LOOP = [
-  // Melody (square wave)
-  [0,    0.5,  MN(4),   'square',   0.07], // E4
-  [0.5,  0.5,  MN(7),   'square',   0.07], // G4
-  [1,    1.5,  MN(9),   'square',   0.07], // A4
-  [2.5,  0.5,  MN(7),   'square',   0.07], // G4
-  [3,    1,    MN(4),   'square',   0.07], // E4
-  [4,    0.5,  MN(2),   'square',   0.07], // D4
-  [4.5,  0.5,  MN(4),   'square',   0.07], // E4
-  [5,    1.5,  MN(7),   'square',   0.07], // G4
-  [6.5,  0.5,  MN(4),   'square',   0.07], // E4
-  [7,    1,    MN(0),   'square',   0.07], // C4
-  [8,    0.5,  MN(7),   'square',   0.07], // G4
-  [8.5,  0.5,  MN(9),   'square',   0.07], // A4
-  [9,    1.5,  MN(12),  'square',   0.07], // C5
-  [10.5, 0.5,  MN(9),   'square',   0.07], // A4
-  [11,   1,    MN(7),   'square',   0.07], // G4
-  [12,   0.5,  MN(5),   'square',   0.07], // F4
-  [12.5, 0.5,  MN(4),   'square',   0.07], // E4
-  [13,   0.5,  MN(2),   'square',   0.07], // D4
-  [13.5, 0.5,  MN(4),   'square',   0.07], // E4
-  [14,   2,    MN(0),   'square',   0.07], // C4 (resolve)
-  // Bass (triangle wave)
-  [0,    1.8,  MN(-12), 'triangle', 0.14], // C3
-  [2,    1.8,  MN(-5),  'triangle', 0.14], // G3
-  [4,    1.8,  MN(-3),  'triangle', 0.14], // A3
-  [6,    1.8,  MN(-12), 'triangle', 0.14], // C3
-  [8,    1.8,  MN(-12), 'triangle', 0.14], // C3
-  [10,   1.8,  MN(-5),  'triangle', 0.14], // G3
-  [12,   1.8,  MN(-7),  'triangle', 0.14], // F3
-  [14,   1.8,  MN(-5),  'triangle', 0.14], // G3
-];
+// ── Easy: Chill Farm Vibes ──
+// 100 BPM, major key, soft sine/triangle, gentle & spacious
+const MUSIC_EASY = {
+  bpm: 100,
+  beats: 16,
+  volume: 0.38,
+  notes: [
+    // Melody (sine — warm and soft)
+    [0,    1,    MN(0),   'sine',     0.06], // C4
+    [1,    1,    MN(4),   'sine',     0.06], // E4
+    [2,    2,    MN(7),   'sine',     0.06], // G4
+    [4,    1,    MN(4),   'sine',     0.06], // E4
+    [5,    1.5,  MN(2),   'sine',     0.06], // D4
+    [6.5,  1.5,  MN(0),   'sine',     0.06], // C4
+    [8,    1,    MN(4),   'sine',     0.06], // E4
+    [9,    1,    MN(7),   'sine',     0.06], // G4
+    [10,   2,    MN(9),   'sine',     0.06], // A4
+    [12,   1,    MN(7),   'sine',     0.06], // G4
+    [13,   1,    MN(4),   'sine',     0.06], // E4
+    [14,   2,    MN(0),   'sine',     0.06], // C4 (resolve)
+    // Bass (triangle — gentle pulse)
+    [0,    2.5,  MN(-12), 'triangle', 0.10], // C3
+    [3,    2.5,  MN(-8),  'triangle', 0.10], // E3
+    [6,    2,    MN(-5),  'triangle', 0.10], // G3
+    [8,    2.5,  MN(-12), 'triangle', 0.10], // C3
+    [11,   2,    MN(-8),  'triangle', 0.10], // E3
+    [13,   3,    MN(-5),  'triangle', 0.10], // G3
+    // Pad (sine — low hum for warmth)
+    [0,    4,    MN(-12), 'sine',     0.04], // C3 pad
+    [4,    4,    MN(-8),  'sine',     0.04], // E3 pad
+    [8,    4,    MN(-12), 'sine',     0.04], // C3 pad
+    [12,   4,    MN(-5),  'sine',     0.04], // G3 pad
+  ],
+};
+
+// ── Normal: Classic HannaPig ──
+// 138 BPM, bright major, square + triangle (the original vibe)
+const MUSIC_NORMAL = {
+  bpm: 138,
+  beats: 16,
+  volume: 0.45,
+  notes: [
+    // Melody (square wave)
+    [0,    0.5,  MN(4),   'square',   0.07], // E4
+    [0.5,  0.5,  MN(7),   'square',   0.07], // G4
+    [1,    1.5,  MN(9),   'square',   0.07], // A4
+    [2.5,  0.5,  MN(7),   'square',   0.07], // G4
+    [3,    1,    MN(4),   'square',   0.07], // E4
+    [4,    0.5,  MN(2),   'square',   0.07], // D4
+    [4.5,  0.5,  MN(4),   'square',   0.07], // E4
+    [5,    1.5,  MN(7),   'square',   0.07], // G4
+    [6.5,  0.5,  MN(4),   'square',   0.07], // E4
+    [7,    1,    MN(0),   'square',   0.07], // C4
+    [8,    0.5,  MN(7),   'square',   0.07], // G4
+    [8.5,  0.5,  MN(9),   'square',   0.07], // A4
+    [9,    1.5,  MN(12),  'square',   0.07], // C5
+    [10.5, 0.5,  MN(9),   'square',   0.07], // A4
+    [11,   1,    MN(7),   'square',   0.07], // G4
+    [12,   0.5,  MN(5),   'square',   0.07], // F4
+    [12.5, 0.5,  MN(4),   'square',   0.07], // E4
+    [13,   0.5,  MN(2),   'square',   0.07], // D4
+    [13.5, 0.5,  MN(4),   'square',   0.07], // E4
+    [14,   2,    MN(0),   'square',   0.07], // C4 (resolve)
+    // Bass (triangle wave)
+    [0,    1.8,  MN(-12), 'triangle', 0.14], // C3
+    [2,    1.8,  MN(-5),  'triangle', 0.14], // G3
+    [4,    1.8,  MN(-3),  'triangle', 0.14], // A3
+    [6,    1.8,  MN(-12), 'triangle', 0.14], // C3
+    [8,    1.8,  MN(-12), 'triangle', 0.14], // C3
+    [10,   1.8,  MN(-5),  'triangle', 0.14], // G3
+    [12,   1.8,  MN(-7),  'triangle', 0.14], // F3
+    [14,   1.8,  MN(-5),  'triangle', 0.14], // G3
+  ],
+};
+
+// ── Hard: Dark Truffle Hunt ──
+// 170 BPM, minor key, chromatic tension, sawtooth + square, heavy bass
+const MUSIC_HARD = {
+  bpm: 170,
+  beats: 16,
+  volume: 0.48,
+  notes: [
+    // Melody (square — aggressive, minor key)
+    [0,    0.5,  MN(0),   'square',   0.08], // C4
+    [0.5,  0.5,  MN(3),   'square',   0.08], // Eb4
+    [1,    1,    MN(7),   'square',   0.08], // G4
+    [2,    0.5,  MN(6),   'square',   0.08], // F#4 (chromatic tension)
+    [2.5,  0.5,  MN(7),   'square',   0.08], // G4
+    [3,    1,    MN(3),   'square',   0.08], // Eb4
+    [4,    0.5,  MN(0),   'square',   0.08], // C4
+    [4.5,  0.25, MN(1),   'square',   0.08], // Db4 (chromatic)
+    [4.75, 0.25, MN(0),   'square',   0.08], // C4
+    [5,    1,    MN(-2),  'square',   0.08], // Bb3
+    [6,    0.5,  MN(0),   'square',   0.08], // C4
+    [6.5,  0.5,  MN(3),   'square',   0.08], // Eb4
+    [7,    1,    MN(7),   'square',   0.08], // G4
+    [8,    0.5,  MN(8),   'square',   0.08], // Ab4
+    [8.5,  0.5,  MN(7),   'square',   0.08], // G4
+    [9,    1,    MN(3),   'square',   0.08], // Eb4
+    [10,   0.5,  MN(5),   'square',   0.08], // F4
+    [10.5, 0.5,  MN(3),   'square',   0.08], // Eb4
+    [11,   0.5,  MN(1),   'square',   0.08], // Db4
+    [11.5, 0.5,  MN(0),   'square',   0.08], // C4
+    [12,   0.5,  MN(3),   'square',   0.08], // Eb4
+    [12.5, 0.5,  MN(6),   'square',   0.06], // F#4 (ghost)
+    [13,   0.5,  MN(7),   'square',   0.08], // G4
+    [13.5, 0.5,  MN(6),   'square',   0.06], // F#4
+    [14,   1,    MN(7),   'square',   0.08], // G4 (unresolved!)
+    [15,   0.5,  MN(6),   'square',   0.05], // F#4 (trailing tension)
+    // Bass (sawtooth — heavy and gritty)
+    [0,    1.5,  MN(-12), 'sawtooth', 0.10], // C3
+    [2,    1.5,  MN(-9),  'sawtooth', 0.10], // Eb3
+    [4,    1.5,  MN(-14), 'sawtooth', 0.10], // Bb2
+    [6,    1.5,  MN(-12), 'sawtooth', 0.10], // C3
+    [8,    1.5,  MN(-4),  'sawtooth', 0.10], // Ab3
+    [10,   1.5,  MN(-5),  'sawtooth', 0.10], // G3
+    [12,   1.5,  MN(-9),  'sawtooth', 0.10], // Eb3
+    [14,   1.5,  MN(-5),  'sawtooth', 0.10], // G3
+    // Percussion-like pulse (square — staccato hits for drive)
+    [0,    0.15, MN(-24), 'square',   0.12], // C2 kick
+    [1,    0.15, MN(-24), 'square',   0.12],
+    [2,    0.15, MN(-24), 'square',   0.12],
+    [3,    0.15, MN(-24), 'square',   0.12],
+    [4,    0.15, MN(-24), 'square',   0.12],
+    [5,    0.15, MN(-24), 'square',   0.12],
+    [6,    0.15, MN(-24), 'square',   0.12],
+    [7,    0.15, MN(-24), 'square',   0.12],
+    [8,    0.15, MN(-24), 'square',   0.12],
+    [9,    0.15, MN(-24), 'square',   0.12],
+    [10,   0.15, MN(-24), 'square',   0.12],
+    [11,   0.15, MN(-24), 'square',   0.12],
+    [12,   0.15, MN(-24), 'square',   0.12],
+    [13,   0.15, MN(-24), 'square',   0.12],
+    [14,   0.15, MN(-24), 'square',   0.12],
+    [15,   0.15, MN(-24), 'square',   0.12],
+  ],
+};
+
+const MUSIC_BY_DIFFICULTY = { easy: MUSIC_EASY, normal: MUSIC_NORMAL, hard: MUSIC_HARD };
 
 let musicPlaying = false;
 let musicMuted = localStorage.getItem('pigSnakeMuted') === '1';
@@ -1729,22 +1834,24 @@ let musicGain = null;
 function scheduleLoop(loopStart) {
   if (!musicPlaying) return;
   const ac = getAudio();
-  const loopDur = 16 * MB;
-  MUSIC_LOOP.forEach(([beat, dur, freq, type, vol]) => {
-    const t = loopStart + beat * MB;
+  const mus = MUSIC_BY_DIFFICULTY[difficulty];
+  const mb = 60 / mus.bpm;
+  const loopDur = mus.beats * mb;
+  mus.notes.forEach(([beat, dur, freq, type, vol]) => {
+    const t = loopStart + beat * mb;
     const osc = ac.createOscillator();
     const g = ac.createGain();
     osc.connect(g);
     g.connect(musicGain);
     osc.type = type;
     osc.frequency.value = freq;
-    const rel = Math.min(0.06, dur * MB * 0.2);
+    const rel = Math.min(0.06, dur * mb * 0.2);
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(vol, t + 0.012);
-    g.gain.setValueAtTime(vol, t + dur * MB - rel);
-    g.gain.linearRampToValueAtTime(0, t + dur * MB);
+    g.gain.setValueAtTime(vol, t + dur * mb - rel);
+    g.gain.linearRampToValueAtTime(0, t + dur * mb);
     osc.start(t);
-    osc.stop(t + dur * MB + 0.05);
+    osc.stop(t + dur * mb + 0.05);
   });
   const nextStart = loopStart + loopDur;
   const msUntil = (nextStart - ac.currentTime) * 1000 - 200;
@@ -1755,8 +1862,9 @@ function startMusic() {
   if (musicPlaying) return;
   musicPlaying = true;
   const ac = getAudio();
+  const mus = MUSIC_BY_DIFFICULTY[difficulty];
   musicGain = ac.createGain();
-  musicGain.gain.value = musicMuted ? 0 : 0.45;
+  musicGain.gain.value = musicMuted ? 0 : mus.volume;
   musicGain.connect(ac.destination);
   scheduleLoop(ac.currentTime + 0.05);
 }
