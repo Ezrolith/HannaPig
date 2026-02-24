@@ -800,8 +800,11 @@ function updateAndDrawParticles() {
 }
 
 
-highScore = parseInt(localStorage.getItem('pigSnakeHighScore') || '0');
-highScoreEl.textContent = highScore;
+function loadHighScore() {
+  highScore = parseInt(localStorage.getItem('pigSnakeHighScore_' + difficulty) || '0');
+  highScoreEl.textContent = highScore;
+}
+loadHighScore();
 
 function init() {
   snake = [
@@ -1411,6 +1414,7 @@ function togglePause() {
 // --- Difficulty ---
 function setDifficulty(d) {
   difficulty = d;
+  loadHighScore();
   if (state === 'playing') {
     clearInterval(gameLoop);
     gameLoop = setInterval(update, getSpeed());
@@ -1636,7 +1640,7 @@ function gameOver() {
 if (gameOverScore > highScore) {
   highScore = gameOverScore;
         highScoreEl.textContent = highScore;
-        localStorage.setItem('pigSnakeHighScore', highScore.toString());
+        localStorage.setItem('pigSnakeHighScore_' + difficulty, highScore.toString());
       }
 finalScoreEl.textContent = 'Slops: ' + gameOverScore;
       submitScoreBtn.disabled = false;
