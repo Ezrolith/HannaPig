@@ -754,6 +754,7 @@ if (window.visualViewport) {
 }
 
 let snake, dir, inputQueue, food, score, gameOverScore, highScore, speed, gameLoop, state;
+let gameOverFlashInterval = null;
 let bonusFood = null, bonusExpiry = 0, bonusFlashMsg = null;
 let flashMessages = []; // floating "+N" popups
 let speedUpBanner = null; // "SPEED UP!" notification
@@ -1593,6 +1594,8 @@ function toggleMute() {
 }
 
 function startGame() {
+  clearInterval(gameLoop);
+  if (gameOverFlashInterval) { clearInterval(gameOverFlashInterval); gameOverFlashInterval = null; }
   state = 'playing';
   startOverlay.classList.add('hidden');
   gameOverOverlay.classList.add('hidden');
@@ -1621,14 +1624,15 @@ function gameOver() {
   frame.addEventListener('animationend', () => frame.classList.remove('shake'), { once: true });
   topScoresPromise = getTopScores(); // start fetch during flash animation
   let flashes = 0;
-  const flashInterval = setInterval(() => {
+  gameOverFlashInterval = setInterval(() => {
     draw();
     if (flashes % 2 === 0) {
       ctx.fillStyle = 'rgba(220, 30, 30, 0.45)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     if (++flashes >= 6) {
-      clearInterval(flashInterval);
+      clearInterval(gameOverFlashInterval);
+      gameOverFlashInterval = null;
 if (gameOverScore > highScore) {
   highScore = gameOverScore;
         highScoreEl.textContent = highScore;
