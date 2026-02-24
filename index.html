@@ -494,7 +494,7 @@
         <button class="skip-btn" id="skipLeaderboardBtn">Skip ›</button>
       </div>
       <div class="overlay hidden" id="leaderboardOverlay">
-        <div class="lb-title">&#x1F3C6; Top Oinks</div>
+        <div class="lb-title" id="lbTitle">&#x1F3C6; Top Oinks</div>
         <div id="leaderboardList"></div>
         <button class="play-again-btn" id="playAgainBtn">Oink Again!</button>
       </div>
@@ -586,6 +586,7 @@ async function submitScore(name, playerScore) {
   const entry = {
     name: name.trim().slice(0, 20) || 'Anonymous',
     score: playerScore,
+    difficulty: difficulty,
     ts: firebase.firestore.FieldValue.serverTimestamp(),
   };
   const ref = await db.collection('scores').add(entry);
@@ -596,6 +597,7 @@ async function getTopScores() {
   if (!db) return [];
   try {
     const snap = await db.collection('scores')
+      .where('difficulty', '==', difficulty)
       .orderBy('score', 'desc')
       .limit(10)
       .get();
@@ -612,6 +614,8 @@ const submitStatus = document.getElementById('submitStatus');
 const playerNameInput = document.getElementById('playerName');
 
 function showLeaderboard(scores, playerScore, playerName, submittedId) {
+  const diffLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  document.getElementById('lbTitle').innerHTML = `&#x1F3C6; Top Oinks (${escapeHtml(diffLabel)})`;
   const list = document.getElementById('leaderboardList');
   if (!scores.length) {
     list.innerHTML = '<div class="lb-empty">No scores yet — be the first oink!</div>';
