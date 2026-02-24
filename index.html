@@ -454,6 +454,44 @@
   }
   .play-again-btn:hover { background: var(--t-deepest); }
 
+  /* All Champs display on start screen */
+  .champs-display {
+    margin-top: 8px;
+    padding: 4px 10px;
+    background: rgba(139, 58, 85, 0.12);
+    border-radius: 8px;
+    border: 1px solid rgba(139, 58, 85, 0.2);
+    width: 85%;
+  }
+  .champs-row {
+    display: flex;
+    gap: 6px;
+    padding: 2px 4px;
+    font-size: 10px;
+    align-items: center;
+  }
+  .champs-row.champs-active {
+    background: rgba(139, 58, 85, 0.15);
+    border-radius: 4px;
+  }
+  .champs-diff { color: #8b3a55; font-weight: bold; width: 52px; flex-shrink: 0; }
+  .champs-name { flex: 1; color: #4a2030; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+  .champs-score { color: #8b3a55; font-weight: bold; flex-shrink: 0; }
+  .champs-empty { color: #a06070; font-style: italic; }
+  .champs-loading { color: #a06070; font-size: 9px; text-align: center; padding: 4px; }
+
+  /* Live target in screen header */
+  .target-display {
+    font-size: 10px;
+    color: var(--t-pale);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .target-display.hidden { display: none; }
+  .target-beaten { text-decoration: line-through; opacity: 0.5; }
+
   /* Very small screens */
   @media (max-height: 600px) {
     .phone { padding: 12px 12px 16px; border-radius: 16px; }
@@ -474,6 +512,7 @@
       <span class="score-label">Slops: <span id="score">0</span></span>
       <span class="high-score-label">Best: <span id="highScore">0</span></span>
     </div>
+    <div class="target-display hidden" id="targetDisplay">&#x1F451; <span id="targetName">—</span>: <span id="targetScore">0</span></div>
     <div class="canvas-wrapper">
       <canvas id="game" width="300" height="300"></canvas>
       <div class="overlay" id="startOverlay">
@@ -481,6 +520,9 @@
         <div class="overlay-title">HANNAPIG</div>
         <div class="overlay-text">Swipe or tap arrows</div>
         <div class="overlay-text">to start oinking!</div>
+        <div class="champs-display" id="champsDisplay">
+          <div class="champs-loading" id="champsLoading">Loading champs...</div>
+        </div>
       </div>
       <div class="overlay hidden" id="gameOverOverlay">
         <div class="overlay-pig">&#x1F634;</div>
@@ -515,7 +557,7 @@
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
-      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.13</span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.14</span>
       <span>Chonk: <span id="lengthLabel">3</span></span>
     </div>
   </div>
@@ -647,6 +689,7 @@ const id = await submitScore(name, gameOverScore);
     const fresh = await getTopScores();
     submitStatus.textContent = '';
 showLeaderboard(fresh, gameOverScore, name, id);
+    loadAllChamps(); // refresh champs for next game
   } catch(e) {
     submitStatus.textContent = 'Error: ' + (e.code || e.message || String(e));
     submitScoreBtn.disabled = false;
@@ -661,6 +704,85 @@ showLeaderboard(scores, gameOverScore, null, null);
 playAgainBtn.addEventListener('click', () => {
   startGame();
 });
+
+// --- All Champs Display + Live Target ---
+let champsData = { easy: null, normal: null, hard: null };
+let currentTarget = null; // { name, score } of #1 for current difficulty
+let targetBeaten = false;
+let topPigBanner = null; // "NEW TOP PIG!" flash
+
+async function fetchChampForDifficulty(diff) {
+  if (!db) return null;
+  try {
+    const snap = await db.collection('scores')
+      .where('difficulty', '==', diff)
+      .orderBy('score', 'desc')
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const d = snap.docs[0].data();
+    return { name: d.name, score: d.score };
+  } catch(e) { return null; }
+}
+
+async function loadAllChamps() {
+  const [easy, normal, hard] = await Promise.all([
+    fetchChampForDifficulty('easy'),
+    fetchChampForDifficulty('normal'),
+    fetchChampForDifficulty('hard'),
+  ]);
+  champsData = { easy, normal, hard };
+  renderChampsDisplay();
+}
+
+function renderChampsDisplay() {
+  const container = document.getElementById('champsDisplay');
+  const diffs = ['easy', 'normal', 'hard'];
+  const labels = { easy: '👑 Easy', normal: '👑 Normal', hard: '👑 Hard' };
+  let html = '';
+  diffs.forEach(d => {
+    const isActive = d === difficulty;
+    const champ = champsData[d];
+    html += `<div class="champs-row${isActive ? ' champs-active' : ''}">`;
+    html += `<span class="champs-diff">${labels[d]}</span>`;
+    if (champ) {
+      html += `<span class="champs-name">${escapeHtml(champ.name)}</span>`;
+      html += `<span class="champs-score">${champ.score}</span>`;
+    } else {
+      html += `<span class="champs-name champs-empty">no scores yet</span>`;
+      html += `<span class="champs-score">—</span>`;
+    }
+    html += `</div>`;
+  });
+  container.innerHTML = html;
+}
+
+function updateTarget() {
+  currentTarget = champsData[difficulty] || null;
+  targetBeaten = false;
+  const el = document.getElementById('targetDisplay');
+  if (currentTarget) {
+    document.getElementById('targetName').textContent = currentTarget.name;
+    document.getElementById('targetScore').textContent = currentTarget.score;
+    el.classList.remove('hidden');
+    el.classList.remove('target-beaten');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+function checkBeatTarget() {
+  if (!currentTarget || targetBeaten) return;
+  if (score > currentTarget.score) {
+    targetBeaten = true;
+    const el = document.getElementById('targetDisplay');
+    el.classList.add('target-beaten');
+    topPigBanner = { alpha: 1.0, frame: 0, oldChamp: currentTarget.name };
+    spawnParticles(canvas.width / 2, canvas.height / 2, '#ffd700', 16);
+  }
+}
+
+loadAllChamps();
 
 // --- Game Setup ---
 const canvas = document.getElementById('game');
@@ -841,6 +963,8 @@ function init() {
   flashMessages = [];
   speedUpBanner = null;
   streak = 0; lastEatTime = 0; streakDisplay = null;
+  topPigBanner = null;
+  updateTarget();
   draw();
 }
 
@@ -937,6 +1061,7 @@ function update() {
       gameLoop = setInterval(update, getSpeed());
       speedUpBanner = { alpha: 1.0, frame: 0, level: speed };
     }
+    checkBeatTarget();
     placeFood();
     // ~30% chance to spawn a bonus item after score ≥ 3
     if (score >= 3 && !bonusFood && Math.random() < 0.30) spawnBonusFood();
@@ -949,6 +1074,7 @@ function update() {
     bonusFlashMsg = { x: head.x * CELL + CELL / 2, y: head.y * CELL + CELL / 2, mult, alpha: 1.0, frame: 0 };
     scoreEl.textContent = score;
     lengthLabel.textContent = snake.length;
+    checkBeatTarget();
     const lv = getSpeedLevel();
     if (lv !== speed) { speed = lv; speedLabel.textContent = speed; clearInterval(gameLoop); gameLoop = setInterval(update, getSpeed()); }
   } else {
@@ -1371,6 +1497,46 @@ function draw() {
     }
   }
 
+  // "NEW TOP PIG!" banner
+  if (topPigBanner) {
+    topPigBanner.frame++;
+    topPigBanner.alpha = Math.max(0, topPigBanner.alpha - 0.008);
+    if (topPigBanner.alpha > 0) {
+      const fs = Math.max(12, Math.round(CELL * 0.75));
+      const subFs = Math.max(8, Math.round(CELL * 0.4));
+      const cy = canvas.height / 2;
+      const barH = fs * 3.2;
+      ctx.save();
+      ctx.globalAlpha = topPigBanner.alpha;
+      // Gold background bar
+      ctx.fillStyle = 'rgba(255, 200, 50, 0.92)';
+      ctx.beginPath();
+      const r = 10;
+      const bx = canvas.width * 0.1, bw = canvas.width * 0.8;
+      ctx.roundRect(bx, cy - barH / 2, bw, barH, r);
+      ctx.fill();
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Crown + title
+      ctx.font = `bold ${fs}px Courier New, monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#7a3800';
+      ctx.shadowColor = 'rgba(255,200,50,0.5)';
+      ctx.shadowBlur = 6;
+      ctx.fillText('\u{1F451} NEW TOP PIG!', canvas.width / 2, cy - subFs * 0.6);
+      // Subtitle
+      ctx.shadowBlur = 0;
+      ctx.font = `${subFs}px Courier New, monospace`;
+      ctx.fillStyle = '#9a5800';
+      ctx.fillText(`You dethroned ${topPigBanner.oldChamp}!`, canvas.width / 2, cy + fs * 0.7);
+      ctx.restore();
+    } else {
+      topPigBanner = null;
+    }
+  }
+
   // Streak display
   if (streakDisplay) {
     streakDisplay.frame++;
@@ -1428,6 +1594,8 @@ function togglePause() {
 function setDifficulty(d) {
   difficulty = d;
   loadHighScore();
+  renderChampsDisplay();
+  updateTarget();
   if (state === 'playing') {
     clearInterval(gameLoop);
     gameLoop = setInterval(update, getSpeed());
@@ -1632,6 +1800,7 @@ function gameOver() {
   state = 'gameover';
   clearInterval(gameLoop);
   stopMusic();
+  document.getElementById('targetDisplay').classList.add('hidden');
   playSadOink();
   // Screen shake
   const frame = document.querySelector('.screen-frame');
