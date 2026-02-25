@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hannapig-v1';
+const CACHE_NAME = 'hannapig-v1.18';
 const ASSETS = [
   './',
   './index.html',
