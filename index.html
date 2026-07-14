@@ -537,6 +537,13 @@
         <div class="overlay-text" id="submitStatus"></div>
         <button class="skip-btn" id="skipLeaderboardBtn">Skip ›</button>
       </div>
+      <div class="overlay hidden" id="continueOverlay">
+        <div class="overlay-pig">&#x1FA99;</div>
+        <div class="overlay-title">CONTINUE?</div>
+        <div id="continueCountdown" style="font-size:28px;font-weight:bold;color:#b8860b;margin:4px 0">9</div>
+        <button class="play-again-btn" id="continueYesBtn">&#x1FA99; Continue — 1 credit</button>
+        <button class="skip-btn" id="continueNoBtn">No thanks ›</button>
+      </div>
       <div class="overlay hidden" id="leaderboardOverlay">
         <div class="lb-title" id="lbTitle">&#x1F3C6; Top Oinks</div>
         <div id="leaderboardList"></div>
@@ -550,16 +557,16 @@
       <div class="overlay hidden" id="creditsNotice">
         <div class="overlay-pig">&#x1FA99;</div>
         <div class="overlay-title">CREDITS!</div>
-        <div class="overlay-text">Credits can now be earned</div>
-        <div class="overlay-text">from playing and will be</div>
-        <div class="overlay-text">redeemable for exciting</div>
-        <div class="overlay-text">features... coming very soon!</div>
+        <div class="overlay-text">Earn credits from playing!</div>
+        <div class="overlay-text">When you oink out, spend</div>
+        <div class="overlay-text">1 credit to CONTINUE your</div>
+        <div class="overlay-text">run and keep your score!</div>
         <button class="play-again-btn" id="creditsNoticeOk" style="margin-top:10px">OK!</button>
       </div>
     </div>
     <div class="screen-footer">
       <span>Trot: <span id="speedLabel">1</span></span>
-      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.18</span>
+      <span style="font-size:9px;opacity:0.4;letter-spacing:0">v1.19</span>
       <span>Chonk: <span id="lengthLabel">3</span></span>
     </div>
   </div>
@@ -653,6 +660,19 @@ async function addCredits(earned) {
       lastPlayed: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   } catch(e) { console.warn('Credits save:', e); }
+}
+
+async function spendCredits(amount) {
+  if (!db || !currentUser || amount <= 0 || userCredits < amount) return false;
+  userCredits -= amount;
+  updateCreditsDisplay();
+  try {
+    await db.collection('users').doc(currentUser.uid).set({
+      credits: firebase.firestore.FieldValue.increment(-amount),
+      lastPlayed: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.warn('Credits spend:', e); }
+  return true;
 }
 
 function updateCreditsDisplay() {
@@ -1932,6 +1952,7 @@ function startGame() {
   clearInterval(gameLoop);
   if (gameOverFlashInterval) { clearInterval(gameOverFlashInterval); gameOverFlashInterval = null; }
   state = 'playing';
+  hideContinueOffer();
   startOverlay.classList.add('hidden');
   gameOverOverlay.classList.add('hidden');
   leaderboardOverlay.classList.add('hidden');
@@ -1969,24 +1990,85 @@ function gameOver() {
     if (++flashes >= 6) {
       clearInterval(gameOverFlashInterval);
       gameOverFlashInterval = null;
-if (gameOverScore > highScore) {
-  highScore = gameOverScore;
-        highScoreEl.textContent = highScore;
-        localStorage.setItem('pigSnakeHighScore_' + difficulty, highScore.toString());
+      // Arcade continue: offer to spend a credit before finalizing the run
+      if (userCredits >= 1 && gameOverScore > 0 && db && currentUser) {
+        showContinueOffer();
+      } else {
+        finalizeGameOver();
       }
-finalScoreEl.textContent = 'Slops: ' + gameOverScore;
-      // Award credits
-      const diffMul = difficulty === 'hard' ? 2 : difficulty === 'normal' ? 1.5 : 1;
-      const creditsEarned = gameOverScore > 0 ? Math.max(1, Math.floor(Math.floor(gameOverScore / 10) * diffMul)) : 0;
-      document.getElementById('creditsEarned').textContent = creditsEarned > 0 ? '+' + creditsEarned + ' CREDITS EARNED' : '';
-      if (creditsEarned > 0) addCredits(creditsEarned);
-      submitScoreBtn.disabled = false;
-      submitStatus.textContent = '';
-      playerNameInput.value = localStorage.getItem('pigSnakePlayerName') || '';
-      gameOverOverlay.classList.remove('hidden');
     }
   }, 80);
 }
+
+function finalizeGameOver() {
+  if (gameOverScore > highScore) {
+    highScore = gameOverScore;
+    highScoreEl.textContent = highScore;
+    localStorage.setItem('pigSnakeHighScore_' + difficulty, highScore.toString());
+  }
+  finalScoreEl.textContent = 'Slops: ' + gameOverScore;
+  // Award credits
+  const diffMul = difficulty === 'hard' ? 2 : difficulty === 'normal' ? 1.5 : 1;
+  const creditsEarned = gameOverScore > 0 ? Math.max(1, Math.floor(Math.floor(gameOverScore / 10) * diffMul)) : 0;
+  document.getElementById('creditsEarned').textContent = creditsEarned > 0 ? '+' + creditsEarned + ' CREDITS EARNED' : '';
+  if (creditsEarned > 0) addCredits(creditsEarned);
+  submitScoreBtn.disabled = false;
+  submitStatus.textContent = '';
+  playerNameInput.value = localStorage.getItem('pigSnakePlayerName') || '';
+  gameOverOverlay.classList.remove('hidden');
+}
+
+// --- Arcade CONTINUE (spend 1 credit to keep the run going) ---
+const continueOverlay = document.getElementById('continueOverlay');
+let continueCountdownInterval = null;
+
+function showContinueOffer() {
+  document.getElementById('continueYesBtn').disabled = false;
+  let remaining = 9;
+  document.getElementById('continueCountdown').textContent = remaining;
+  continueOverlay.classList.remove('hidden');
+  continueCountdownInterval = setInterval(() => {
+    remaining--;
+    document.getElementById('continueCountdown').textContent = Math.max(remaining, 0);
+    if (remaining <= 0) declineContinue();
+  }, 1000);
+}
+
+function hideContinueOffer() {
+  clearInterval(continueCountdownInterval);
+  continueCountdownInterval = null;
+  continueOverlay.classList.add('hidden');
+}
+
+function declineContinue() {
+  hideContinueOffer();
+  finalizeGameOver();
+}
+
+function continueRun() {
+  if (userCredits < 1) { declineContinue(); return; }
+  document.getElementById('continueYesBtn').disabled = true;
+  hideContinueOffer();
+  spendCredits(1);
+  // Respawn a short pig at the centre; keep score, speed, and the same board
+  snake = [ { x: 7, y: 7 }, { x: 6, y: 7 }, { x: 5, y: 7 } ];
+  dir = { x: 1, y: 0 };
+  inputQueue = [];
+  streak = 0; lastEatTime = 0; streakDisplay = null;
+  bonusFood = null; bonusFlashMsg = null;
+  particles = []; flashMessages = [];
+  lengthLabel.textContent = snake.length;
+  placeFood();
+  updateTarget();
+  state = 'playing';
+  stopMusic();
+  if (!musicMuted) startMusic();
+  draw();
+  gameLoop = setInterval(update, getSpeed());
+}
+
+document.getElementById('continueYesBtn').addEventListener('click', continueRun);
+document.getElementById('continueNoBtn').addEventListener('click', declineContinue);
 
 // --- Input: Direction handler (shared by keyboard, swipe, and d-pad) ---
 const DIR_MAP = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
@@ -2153,8 +2235,8 @@ document.getElementById('bgBtn').addEventListener('click', () => {
 });
 
 // --- One-time credits notice (REMOVE THIS BLOCK LATER) ---
-if (!localStorage.getItem('pigSnakeCreditsNotice_v1')) {
-  localStorage.setItem('pigSnakeCreditsNotice_v1', '1');
+if (!localStorage.getItem('pigSnakeCreditsNotice_v2')) {
+  localStorage.setItem('pigSnakeCreditsNotice_v2', '1');
   const notice = document.getElementById('creditsNotice');
   const startOv = document.getElementById('startOverlay');
   startOv.classList.add('hidden');
